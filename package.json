@@ -1,0 +1,18 @@
+{
+  "name": "btcwallet",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build:buffer": "browserify ./libs/buffer-shim.js -s Buffer -o libs/buffer-6.0.3.js",
+    "build:bitcoin": "browserify -r bitcoinjs-lib -s bitcoin -o libs/bitcoinjs-lib-5.2.0.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "bitcoinjs-lib": "5.2.0",
+    "browserify": "17.0.1",
+     "buffer": "6.0.3"
+  }
+}
