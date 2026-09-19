@@ -69,7 +69,14 @@
                                             {{ option.text }}
                                         </option>
                                     </select>
+                                    <select class="form-select mb-2" v-show="showCustomRpcInput" v-model="customNetworkSelectValue" aria-label="Custom RPC network">
+                                        <option value="testnet4">Treat unknown RPC as Testnet4 (tb1)</option>
+                                        <option value="signet">Treat unknown RPC as Signet (tb1)</option>
+                                        <option value="testnet">Treat unknown RPC as Testnet3 (tb1)</option>
+                                        <option value="mainnet">Treat unknown RPC as Mainnet (bc1)</option>
+                                    </select>
                                     <input type="text" class="form-control" v-show="showCustomRpcInput" v-model="rpcEndpointCustomInput" placeholder="Enter custom Esplora API URL" ref="rpcCustomInput">
+                                    <small class="form-text text-muted d-block mt-2">Testnet4 is the current Bitcoin test network. Signet has steadier blocks. Testnet3 is deprecated. Mainnet is real BTC.</small>
                                 </div>
                                 <button class="btn btn-primary" @click="updateRpcAndNetwork" :disabled="isRpcUpdateDisabled"><i class="bi bi-check-circle me-1"></i> Update</button>
                                 <!-- Network status display bound to Vue data -->
@@ -151,14 +158,86 @@
                                 </div>
                                 <div class="mb-2">
                                     <label class="form-label">Balance:</label>
-                                    <div class="d-flex align-items-center">
+                                    <div class="d-flex align-items-center flex-wrap gap-2">
                                         <span class="balance-display me-2">{{ walletBalance }}</span>
-                                        <span class="text-muted me-3">{{ balanceUnit }}</span>
+                                        <span class="text-muted me-2">{{ balanceUnit }}</span>
                                         <button class="btn btn-sm btn-outline-primary" @click="fetchBalance" title="Refresh Balance" :disabled="!isWalletLoaded">
                                             <i class="bi bi-arrow-clockwise"></i>
                                         </button>
+                                        <button v-if="showFaucetCard" class="btn btn-sm btn-outline-success" type="button" @click="scrollToFaucets">
+                                            <i class="bi bi-droplet me-1"></i> Get test coins
+                                        </button>
                                     </div>
                                     <small class="text-muted">(Balance is an estimate based on spendable UTXOs)</small>
+                               </div>
+                           </div>
+                      </div>
+
+                      <!-- Testnet Faucets Card -->
+                      <div class="card shadow-sm mb-4" v-if="showFaucetCard" ref="faucetCard">
+                           <div class="card-body">
+                               <h5 class="card-title mb-2"><i class="bi bi-droplet-fill me-1"></i> Get {{ networkName }} Coins</h5>
+                               <p class="small text-muted mb-3">These coins have no value. Testnet3, Testnet4, and Signet all use <code>tb1</code> addresses, but they are different chains — use a faucet for <strong>{{ networkName }}</strong> or the coins will never appear.</p>
+                               <div class="alert alert-warning py-2 small" v-if="isLegacyTestnet">
+                                   Testnet3 is deprecated. Switch the RPC to Testnet4 or Signet unless you already depend on Testnet3.
+                               </div>
+                               <div class="alert alert-info py-2 small" v-if="!isWalletLoaded">
+                                   Create or import a wallet first. We copy your address when you open a faucet.
+                               </div>
+                               <div class="list-group faucet-list mb-3">
+                                   <div class="list-group-item" v-for="faucet in currentFaucets" :key="faucet.id">
+                                       <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-1">
+                                           <div>
+                                               <span class="faucet-name">{{ faucet.name }}</span>
+                                               <span v-if="faucet.recommended" class="badge text-bg-success ms-2">Best first try</span>
+                                               <span class="badge text-bg-secondary ms-1">{{ faucet.requirement }}</span>
+                                           </div>
+                                           <button class="btn btn-sm btn-primary" type="button" @click="openFaucet(faucet)">
+                                               <i class="bi bi-box-arrow-up-right me-1"></i>
+                                               {{ isWalletLoaded ? 'Copy address and open' : 'Open faucet' }}
+                                           </button>
+                                       </div>
+                                       <p class="small text-muted mb-0">{{ faucet.notes }}</p>
+                                   </div>
+                               </div>
+                               <div class="accordion accordion-flush" id="faucetHelpAccordion">
+                                   <div class="accordion-item">
+                                       <h2 class="accordion-header">
+                                           <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#faucetNodeHelp" aria-expanded="false" aria-controls="faucetNodeHelp">
+                                               Can I run a node to earn test coins?
+                                           </button>
+                                       </h2>
+                                       <div id="faucetNodeHelp" class="accordion-collapse collapse" data-bs-parent="#faucetHelpAccordion">
+                                           <div class="accordion-body small">
+                                               <p>No. Running Bitcoin Core (or any full node) does not pay coins — not on mainnet, and not on test networks. A node validates and relays; mining is a separate job that needs hash power.</p>
+                                               <ul class="mb-2">
+                                                   <li><strong>Faucets</strong> are the practical way to fund this wallet.</li>
+                                                   <li><strong>Mining Testnet4</strong> is possible in theory but a poor substitute (difficulty games and block storms).</li>
+                                                   <li><strong>Signet</strong> cannot be mined unless you hold the signet challenge key.</li>
+                                                   <li><strong>Regtest</strong> is the way to mint coins on demand: <code>bitcoind -regtest</code> then <code>generatetoaddress</code>. Those coins never leave your machine.</li>
+                                                   <li><strong>Your own faucet</strong> needs a funded test wallet plus a small server such as <a href="https://github.com/kallewoof/bitcoin-faucet" target="_blank" rel="noopener noreferrer">kallewoof/bitcoin-faucet</a>. This site is static and cannot pay anyone.</li>
+                                               </ul>
+                                               <p class="mb-0">You <em>can</em> point this wallet at your own Esplora/electrs node via “Other Esplora API…”. That still does not earn coins.</p>
+                                           </div>
+                                       </div>
+                                   </div>
+                                   <div class="accordion-item">
+                                       <h2 class="accordion-header">
+                                           <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#faucetMissingHelp" aria-expanded="false" aria-controls="faucetMissingHelp">
+                                               Why didn’t the coins arrive?
+                                           </button>
+                                       </h2>
+                                       <div id="faucetMissingHelp" class="accordion-collapse collapse" data-bs-parent="#faucetHelpAccordion">
+                                           <div class="accordion-body small">
+                                               <ul class="mb-0">
+                                                   <li>Wrong chain: a Testnet4 faucet cannot fund a Signet or Testnet3 RPC.</li>
+                                                   <li>Rate limits, captchas, or an empty faucet pot. Try the next faucet on the list.</li>
+                                                   <li>Testnet4 confirmations can lag during mining lulls. Refresh the balance after a block.</li>
+                                                   <li>Return unused coins to the faucet if it publishes a recycle address.</li>
+                                               </ul>
+                                           </div>
+                                       </div>
+                                   </div>
                                </div>
                            </div>
                       </div>
@@ -187,7 +266,7 @@
                                 </div>
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                         <label for="send-amount" class="form-label">Amount (BTC)</label>
+                                         <label for="send-amount" class="form-label">Amount ({{ balanceUnit }})</label>
                                          <input type="number" step="0.00000001" min="0" class="form-control" id="send-amount" required placeholder="0.00000000" v-model.number="sendAmountInput">
                                     </div>
                                     <div class="col-md-6 mb-3">
@@ -225,6 +304,9 @@
                             </div>
                             <!-- QR Code Div - Added class for styling -->
                             <div ref="qrCodeDiv" class="qr-code-container"></div>
+                            <button v-if="showFaucetCard" class="btn btn-outline-success mt-3" type="button" @click="scrollToFaucets">
+                                <i class="bi bi-droplet me-1"></i> Get test coins from a faucet
+                            </button>
                         </div>
                      </div>
                      <div class="alert alert-warning" v-else>

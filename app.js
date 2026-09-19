@@ -1,35 +1,157 @@
 const { createApp } = Vue;
 
+// Known Esplora chains. Testnet3/4 and Signet share tb1 address encoding, but
+// coins live on different ledgers — the RPC (and faucet) must match.
+const NETWORKS = {
+    testnet4: {
+        id: 'testnet4',
+        label: 'Testnet4',
+        isTestnet: true,
+        bitcoinjs: 'testnet',
+        rpc: 'https://mempool.space/testnet4/api/',
+        explorer: 'https://mempool.space/testnet4/',
+        genesis: '00000000da84f2bafbbc53dee25a72ae507ff4914b867c565be350b0da8bf043',
+        unit: 'tBTC'
+    },
+    signet: {
+        id: 'signet',
+        label: 'Signet',
+        isTestnet: true,
+        bitcoinjs: 'testnet',
+        rpc: 'https://mempool.space/signet/api/',
+        explorer: 'https://mempool.space/signet/',
+        genesis: '00000008819873e925422c1ff0f99f7cc9bbb232af63a077a480a3633bee1ef6',
+        unit: 'tBTC'
+    },
+    testnet: {
+        id: 'testnet',
+        label: 'Testnet3 (legacy)',
+        isTestnet: true,
+        bitcoinjs: 'testnet',
+        rpc: 'https://blockstream.info/testnet/api/',
+        explorer: 'https://mempool.space/testnet/',
+        genesis: '000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943',
+        unit: 'tBTC'
+    },
+    mainnet: {
+        id: 'mainnet',
+        label: 'Mainnet',
+        isTestnet: false,
+        bitcoinjs: 'bitcoin',
+        rpc: 'https://blockstream.info/api/',
+        explorer: 'https://mempool.space/',
+        genesis: '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f',
+        unit: 'BTC'
+    }
+};
+
+const FAUCETS = {
+    testnet4: [
+        {
+            id: 'coinfaucet-t4',
+            name: 'Coinfaucet.eu',
+            url: 'https://coinfaucet.eu/en/btc-testnet4/',
+            requirement: 'Captcha',
+            recommended: true,
+            notes: 'Best first try. No account. Paste your address and complete the captcha. IP rate-limited; sometimes dry.'
+        },
+        {
+            id: 'mempool-t4',
+            name: 'mempool.space Faucet',
+            url: 'https://mempool.space/testnet4/faucet',
+            requirement: 'GitHub login',
+            recommended: false,
+            notes: 'Same site as the explorer, so you can watch the payout. Requires a GitHub account as the anti-bot check.'
+        },
+        {
+            id: 'anyone-t4',
+            name: 'testnet4.anyone.eu.org',
+            url: 'https://testnet4.anyone.eu.org/',
+            requirement: 'Community',
+            recommended: false,
+            notes: 'Independent Testnet4 faucet. Availability depends on donated coins.'
+        }
+    ],
+    signet: [
+        {
+            id: 'signetfaucet',
+            name: 'signetfaucet.com',
+            url: 'https://signetfaucet.com/',
+            requirement: 'Captcha',
+            recommended: true,
+            notes: 'Default Signet faucet used by Bitcoin Core’s getcoins.py. Daily limit per IP. Steadiest public test chain.'
+        },
+        {
+            id: 'bitcoinsignetfaucet',
+            name: 'Bitcoin Signet Faucet',
+            url: 'https://bitcoinsignetfaucet.com/',
+            requirement: 'No account',
+            recommended: false,
+            notes: 'Pays 1,000–10,000 sats. Up to five requests per IP and address per 24 hours. Check /status if a payout is queued.'
+        },
+        {
+            id: 'alt-signet',
+            name: 'Alt Signet Faucet',
+            url: 'https://alt.signetfaucet.com/',
+            requirement: 'Captcha',
+            recommended: false,
+            notes: 'Backup faucet for default Signet. Recycle unused coins when you are done testing.'
+        }
+    ],
+    testnet: [
+        {
+            id: 'coinfaucet-t3',
+            name: 'Coinfaucet.eu (Testnet3)',
+            url: 'https://coinfaucet.eu/en/btc-testnet/',
+            requirement: 'Captcha',
+            recommended: true,
+            notes: 'Testnet3 is deprecated. Use this only if you already have Testnet3 infrastructure.'
+        },
+        {
+            id: 'uo1',
+            name: 'bitcoinfaucet.uo1.net',
+            url: 'https://bitcoinfaucet.uo1.net/',
+            requirement: 'Captcha',
+            recommended: false,
+            notes: 'Classic Testnet3 faucet. Often paused when fees are high or the pot is empty.'
+        }
+    ]
+};
+
 createApp({
     data() {
         return {
-            // Configuration (non-reactive might be fine, but keeping for simplicity)
-            DEFAULT_MAINNET_RPC_ENDPOINT: 'https://blockstream.info/api/',
-            DEFAULT_TESTNET_RPC_ENDPOINT: 'https://blockstream.info/testnet/api/',
             MIN_CONFIRMATIONS: 1,
 
-            // RPC Options for dropdown
             rpcOptions: [
                 {
-                    value: 'DEFAULT_TESTNET',
-                    text: 'https://blockstream.info/testnet/api/' // Use the URL directly
+                    value: 'testnet4',
+                    text: 'Testnet4 — mempool.space (recommended)'
                 },
                 {
-                    value: 'DEFAULT_MAINNET',
-                    text: 'https://blockstream.info/api/' // Use the URL directly
+                    value: 'signet',
+                    text: 'Signet — mempool.space (steady blocks)'
+                },
+                {
+                    value: 'testnet',
+                    text: 'Testnet3 — Blockstream (legacy)'
+                },
+                {
+                    value: 'mainnet',
+                    text: 'Mainnet — Blockstream (real BTC)'
                 },
                 {
                     value: 'CUSTOM',
-                    text: 'Other...'
+                    text: 'Other Esplora API...'
                 }
             ],
 
             // State
             network: null, // bitcoinjs-lib network object
+            networkId: 'testnet4',
             keyPair: null, // bitcoinjs-lib keyPair object
             currentRpcEndpoint: '',
             qrCodeInstance: null,
-            isTestnet: true,
             currentWif: '',
             walletSource: 'none', // 'none' | 'wif' | 'passkey'
             isPkVisible: false,
@@ -38,15 +160,15 @@ createApp({
             hasSavedPasskey: false,
             walletAddress: 'Not loaded',
             walletBalance: 'N/A',
-            balanceUnit: 'BTC',
             isLoading: false,
             alerts: [], // Array to hold alert messages { message, type, id }
 
             // Input Models
             privateKeyInput: '',
             pkInputType: 'password', // Added for import field visibility
-            rpcEndpointSelectValue: 'DEFAULT_TESTNET',
+            rpcEndpointSelectValue: 'testnet4',
             rpcEndpointCustomInput: '',
+            customNetworkSelectValue: 'testnet4',
             recipientAddressInput: '',
             sendAmountInput: '',
             feeRateInput: 10, 
@@ -85,27 +207,34 @@ createApp({
         isPasskeyWallet() {
             return this.walletSource === 'passkey';
         },
+        activeNetwork() {
+            return NETWORKS[this.networkId] || NETWORKS.testnet4;
+        },
+        isTestnet() {
+            return this.activeNetwork.isTestnet;
+        },
         networkName() {
-            return this.isTestnet ? 'Testnet' : 'Mainnet';
+            return this.activeNetwork.label;
+        },
+        balanceUnit() {
+            return this.activeNetwork.unit;
         },
         blockExplorerUrlBase() {
-            return this.isTestnet ? 'https://mempool.space/testnet/' : 'https://mempool.space/';
+            return this.activeNetwork.explorer;
+        },
+        currentFaucets() {
+            return FAUCETS[this.networkId] || [];
+        },
+        showFaucetCard() {
+            return this.isTestnet;
+        },
+        isLegacyTestnet() {
+            return this.networkId === 'testnet';
         },
         // Computed property to disable RPC update if selection hasn't changed
         isRpcUpdateDisabled() {
-            let selectedRpc = '';
-            if (this.rpcEndpointSelectValue === 'DEFAULT_TESTNET') {
-                selectedRpc = this.DEFAULT_TESTNET_RPC_ENDPOINT;
-            } else if (this.rpcEndpointSelectValue === 'DEFAULT_MAINNET') {
-                selectedRpc = this.DEFAULT_MAINNET_RPC_ENDPOINT;
-            } else if (this.rpcEndpointSelectValue === 'CUSTOM') {
-                selectedRpc = this.rpcEndpointCustomInput.trim();
-                // Normalize custom input for comparison (add trailing slash if missing)
-                if (selectedRpc && !selectedRpc.endsWith('/')) {
-                     selectedRpc += '/';
-                }
-            } 
-            return selectedRpc === this.currentRpcEndpoint;
+            const selectedRpc = this.resolveSelectedRpc();
+            return !selectedRpc || selectedRpc === this.currentRpcEndpoint;
         },
         // Optional: Computed property for theme icon class
         themeIconClass() {
@@ -117,7 +246,7 @@ createApp({
         showLoading(show = true) {
             this.isLoading = show;
         },
-        showAlert(message, type = 'info') {
+        showAlert(message, type = 'info', duration = 4000) {
             const id = Date.now(); // Simple unique ID for keying
             const newAlert = { message, type, id }; // Re-added id
             
@@ -128,7 +257,7 @@ createApp({
 
             setTimeout(() => {
                 this.dismissAlert();
-            }, 4000);
+            }, duration);
         },
         dismissAlert() {
              this.alerts = [];
@@ -150,6 +279,29 @@ createApp({
         getAddress(node) {
             if (!node) return null;
             return bitcoin.payments.p2wpkh({ pubkey: node.publicKey, network: this.network }).address;
+        },
+        getBitcoinjsNetwork(networkId) {
+            const preset = NETWORKS[networkId] || NETWORKS.testnet4;
+            return preset.bitcoinjs === 'bitcoin' ? bitcoin.networks.bitcoin : bitcoin.networks.testnet;
+        },
+        normalizeRpcUrl(url) {
+            let targetRpc = (url || '').trim();
+            if (targetRpc && !targetRpc.endsWith('/')) {
+                targetRpc += '/';
+            }
+            return targetRpc;
+        },
+        resolveSelectedRpc() {
+            if (this.rpcEndpointSelectValue === 'CUSTOM') {
+                return this.normalizeRpcUrl(this.rpcEndpointCustomInput);
+            }
+            const preset = NETWORKS[this.rpcEndpointSelectValue];
+            return preset ? preset.rpc : '';
+        },
+        networkIdFromGenesis(genesisHash) {
+            if (!genesisHash) return null;
+            const hash = String(genesisHash).trim().toLowerCase();
+            return Object.keys(NETWORKS).find((id) => NETWORKS[id].genesis === hash) || null;
         },
         updateRpcSelection() {
              if (this.rpcEndpointSelectValue === 'CUSTOM') {
@@ -532,15 +684,44 @@ createApp({
             this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-bs-theme', this.currentTheme);
         },
+        async openFaucet(faucet) {
+            if (!faucet || !faucet.url) return;
+            if (this.isWalletLoaded) {
+                try {
+                    await navigator.clipboard.writeText(this.walletAddress);
+                    this.showAlert(`Address copied. Paste it into ${faucet.name}. Make sure the faucet is for ${this.networkName}.`, 'success', 7000);
+                } catch (err) {
+                    console.error('Failed to copy address before opening faucet:', err);
+                    this.showAlert('Could not copy the address automatically. Copy it from Wallet Details, then paste it in the faucet.', 'warning', 7000);
+                }
+            } else {
+                this.showAlert('Create or import a wallet first, then come back so we can copy your address into the faucet.', 'warning', 6000);
+            }
+            window.open(faucet.url, '_blank', 'noopener,noreferrer');
+        },
+        scrollToFaucets() {
+            const tabTrigger = document.getElementById('info-tab');
+            if (tabTrigger && typeof bootstrap !== 'undefined') {
+                bootstrap.Tab.getOrCreateInstance(tabTrigger).show();
+            }
+            this.$nextTick(() => {
+                const card = this.$refs.faucetCard;
+                if (card && typeof card.scrollIntoView === 'function') {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        },
         // Update RPC & Network Detection
         async updateRpcAndNetwork() {
-             let targetRpc = '';
-            if (this.rpcEndpointSelectValue === 'DEFAULT_TESTNET') {
-                targetRpc = this.DEFAULT_TESTNET_RPC_ENDPOINT;
-            } else if (this.rpcEndpointSelectValue === 'DEFAULT_MAINNET') {
-                targetRpc = this.DEFAULT_MAINNET_RPC_ENDPOINT;
-            } else if (this.rpcEndpointSelectValue === 'CUSTOM') {
-                targetRpc = this.rpcEndpointCustomInput.trim();
+            let intendedNetworkId = null;
+            let targetRpc = '';
+
+            if (this.rpcEndpointSelectValue === 'CUSTOM') {
+                targetRpc = this.normalizeRpcUrl(this.rpcEndpointCustomInput);
+                intendedNetworkId = this.customNetworkSelectValue;
+            } else if (NETWORKS[this.rpcEndpointSelectValue]) {
+                intendedNetworkId = this.rpcEndpointSelectValue;
+                targetRpc = NETWORKS[intendedNetworkId].rpc;
             } else {
                 this.showAlert("Invalid RPC selection.", "warning");
                 return;
@@ -554,43 +735,52 @@ createApp({
                  this.showAlert("Invalid RPC URL. Must start with http:// or https://", "warning");
                  return;
             }
-            if (!targetRpc.endsWith('/')) {
-                targetRpc += '/';
-            }
 
              this.networkStatusText = 'Selected Network: Detecting...';
              this.networkStatusClass = 'form-text text-muted d-block mt-2'; // Default class while detecting
             this.showLoading(true);
 
             try {
-                const blockHeightUrl = `${targetRpc}blocks/tip/height`;
-                const response = await axios.get(blockHeightUrl, { timeout: 10000 });
-                const blockHeight = parseInt(response.data, 10);
+                const heightResponse = await axios.get(`${targetRpc}blocks/tip/height`, { timeout: 10000 });
+                const blockHeight = parseInt(heightResponse.data, 10);
 
                 if (isNaN(blockHeight)) {
                     throw new Error('Invalid block height received.');
                 }
 
-                const detectedNetworkIsTestnet = blockHeight > 1_500_000; 
-                const previousNetworkIsTestnet = this.isTestnet;
-
-                // If network changed and wallet exists, clear session WITHOUT confirmation
-                if (this.isWalletLoaded && detectedNetworkIsTestnet !== previousNetworkIsTestnet) {
-                     this.clearSession(); // Clears wallet state - This will trigger reactive UI updates
+                let detectedNetworkId = null;
+                try {
+                    const genesisResponse = await axios.get(`${targetRpc}block-height/0`, { timeout: 10000 });
+                    detectedNetworkId = this.networkIdFromGenesis(genesisResponse.data);
+                } catch (genesisError) {
+                    console.warn('Could not read genesis hash for network detection:', genesisError);
                 }
 
-                // Update state regardless of whether session was cleared
-                this.isTestnet = detectedNetworkIsTestnet;
-                this.network = this.isTestnet ? bitcoin.networks.testnet : bitcoin.networks.bitcoin;
+                const nextNetworkId = detectedNetworkId || intendedNetworkId || 'testnet4';
+                const previousWasMainnet = this.networkId === 'mainnet';
+                const nextIsMainnet = nextNetworkId === 'mainnet';
+
+                // Switching between test chains keeps the same tb1 key; mainnet keys are different.
+                if (this.isWalletLoaded && previousWasMainnet !== nextIsMainnet) {
+                     this.clearSession();
+                }
+
+                this.networkId = nextNetworkId;
+                this.network = this.getBitcoinjsNetwork(nextNetworkId);
                 this.currentRpcEndpoint = targetRpc;
 
-                this.showAlert(`RPC Endpoint updated. Detected Network: ${this.networkName}`, "success");
-                 this.networkStatusText = `Selected Network: ${this.networkName} (Detected)`;
+                const detectionNote = detectedNetworkId ? 'genesis match' : `height ${blockHeight}`;
+                if (detectedNetworkId && intendedNetworkId && detectedNetworkId !== intendedNetworkId) {
+                    this.showAlert(`This RPC is ${this.networkName}, not ${NETWORKS[intendedNetworkId].label}. Faucets switched to match the chain.`, 'warning', 7000);
+                } else {
+                    this.showAlert(`RPC Endpoint updated. Network: ${this.networkName}`, "success");
+                }
+                 this.networkStatusText = `Selected Network: ${this.networkName} (${detectionNote})`;
                  this.networkStatusClass = `form-text d-block mt-2 ${this.isTestnet ? 'text-info' : 'text-primary'}`; 
 
-                // Refresh balance if wallet is STILL loaded (i.e., wasn't cleared)
-                if (this.isWalletLoaded) { 
-                     this.fetchBalance();
+                if (this.isWalletLoaded) {
+                    this.walletAddress = this.getAddress(this.keyPair);
+                    this.fetchBalance();
                 }
                 
             } catch (error) {
@@ -613,10 +803,11 @@ createApp({
         }
 
         // Initialize state
-        this.isTestnet = true; 
-        this.network = bitcoin.networks.testnet;
-        this.currentRpcEndpoint = this.DEFAULT_TESTNET_RPC_ENDPOINT;
-        this.rpcEndpointSelectValue = 'DEFAULT_TESTNET'; 
+        this.networkId = 'testnet4';
+        this.network = this.getBitcoinjsNetwork('testnet4');
+        this.currentRpcEndpoint = NETWORKS.testnet4.rpc;
+        this.rpcEndpointSelectValue = 'testnet4'; 
+        this.customNetworkSelectValue = 'testnet4';
         this.showCustomRpcInput = false;
         this.hasSavedPasskey = typeof PasskeyWallet !== 'undefined' && Boolean(PasskeyWallet.getSavedCredentialId());
         if (typeof PasskeyWallet !== 'undefined') {
