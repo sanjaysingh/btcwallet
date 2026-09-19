@@ -58,6 +58,22 @@
         return crypto.subtle.digest('SHA-256', new TextEncoder().encode(PRF_SALT_STRING));
     }
 
+    function isValidRpId(hostname) {
+        if (!hostname) {
+            return false;
+        }
+        if (hostname === 'localhost') {
+            return true;
+        }
+        if (hostname === '::1' || hostname === '[::1]') {
+            return false;
+        }
+        if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname)) {
+            return false;
+        }
+        return hostname.includes('.');
+    }
+
     async function detectSupport() {
         const result = {
             available: false,
@@ -67,6 +83,11 @@
 
         if (!isSecurePasskeyContext()) {
             result.message = 'Passkeys require HTTPS (or localhost) and a browser with WebAuthn.';
+            return result;
+        }
+
+        if (!isValidRpId(window.location.hostname)) {
+            result.message = 'Passkeys cannot be used on a raw IP address. Open this app at localhost or a domain name.';
             return result;
         }
 
@@ -162,6 +183,9 @@
     }
 
     async function evaluatePrf(credentialIdBytes) {
+        if (!isValidRpId(window.location.hostname)) {
+            throw new Error('Passkeys cannot be used on a raw IP address. Open this app at localhost or a domain name.');
+        }
         const salt = await getPrfSalt();
         const publicKey = {
             challenge: randomBytes(32),
@@ -197,6 +221,9 @@
     }
 
     async function createPasskey() {
+        if (!isValidRpId(window.location.hostname)) {
+            throw new Error('Passkeys cannot be used on a raw IP address. Open this app at localhost or a domain name.');
+        }
         const userId = randomBytes(32);
         const credential = await navigator.credentials.create({
             publicKey: {
@@ -299,6 +326,7 @@
         createPasskey,
         unlockPasskey,
         isUserCancellation,
+        isValidRpId,
         bufferToBase64Url,
         base64UrlToBuffer,
         derivePrivateKeyBytes

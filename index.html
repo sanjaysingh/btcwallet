@@ -109,12 +109,12 @@
 
                                <!-- Loaded Wallet Info Section -->
                                 <div v-if="showLoadedWalletDetails" class="mt-4 border-top pt-3">
-                                    <div v-if="walletSource === 'passkey'" class="mb-3">
+                                    <div v-if="isPasskeyWallet" class="mb-3">
                                         <span class="badge text-bg-success"><i class="bi bi-fingerprint me-1"></i>Passkey wallet</span>
                                         <p class="small text-muted mt-2 mb-0">Unlocked with your passkey for this session. Use the same passkey later to restore this wallet. The Bitcoin key is derived in the browser and never sent to a server.</p>
                                     </div>
                                     <div class="mb-3">
-                                         <label class="form-label">{{ walletSource === 'passkey' ? 'Backup Private Key (WIF):' : 'Current Session Private Key (WIF):' }}</label>
+                                         <label class="form-label">{{ isPasskeyWallet ? 'Backup Private Key (WIF):' : 'Current Session Private Key (WIF):' }}</label>
                                          <div class="input-group">
                                              <span class="form-control private-key-display" :class="{'text-muted': !isPkVisible}">{{ currentPrivateKeyDisplay }}</span>
                                              <button class="btn btn-outline-secondary" type="button" @click="toggleCurrentPkVisibility" title="Show/Hide Key">
@@ -128,7 +128,7 @@
                                     </div>
                                     <div class="d-flex flex-wrap gap-2">
                                         <button class="btn btn-danger btn-sm" @click="clearSession"><i class="bi bi-x-octagon me-1"></i> Clear Wallet Session</button>
-                                        <button v-if="walletSource === 'passkey' && hasSavedPasskey" class="btn btn-outline-secondary btn-sm" @click="forgetSavedPasskey">
+                                        <button v-if="isPasskeyWallet && hasSavedPasskey" class="btn btn-outline-secondary btn-sm" @click="forgetSavedPasskey">
                                             <i class="bi bi-trash me-1"></i> Forget saved passkey on this device
                                         </button>
                                     </div>

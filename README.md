@@ -24,6 +24,7 @@ Passkey wallets use the WebAuthn **PRF** extension to derive a Bitcoin key from 
 Requirements:
 
 - A secure context (HTTPS or `localhost`)
+- Opened on `localhost` or a real domain — raw IP addresses are not valid WebAuthn RP IDs
 - A browser/authenticator that supports WebAuthn PRF (Safari 18+, Chrome/Android passkeys, or a compatible security key)
 - Windows Hello currently does **not** support PRF
 
