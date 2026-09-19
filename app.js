@@ -31,7 +31,11 @@ createApp({
             qrCodeInstance: null,
             isTestnet: true,
             currentWif: '',
+            walletSource: 'none', // 'none' | 'wif' | 'passkey'
             isPkVisible: false,
+            isPasskeyAvailable: false,
+            passkeySupportMessage: '',
+            hasSavedPasskey: false,
             walletAddress: 'Not loaded',
             walletBalance: 'N/A',
             balanceUnit: 'BTC',
@@ -77,6 +81,9 @@ createApp({
         },
         isWalletLoaded() {
             return this.keyPair !== null;
+        },
+        isPasskeyWallet() {
+            return this.walletSource === 'passkey';
         },
         networkName() {
             return this.isTestnet ? 'Testnet' : 'Mainnet';
@@ -217,6 +224,7 @@ createApp({
                  this.walletAddress = 'Not loaded';
                  this.walletBalance = 'N/A';
                  this.currentWif = '';
+                 this.walletSource = 'none';
                  this.isPkVisible = false;
                  this.privateKeyInput = ''; // Clear import input
                  this.showTxInfo = false;
@@ -232,6 +240,7 @@ createApp({
             try {
                 this.keyPair = bitcoin.ECPair.makeRandom({ network: this.network });
                 this.currentWif = this.keyPair.toWIF();
+                this.walletSource = 'wif';
                 this.isPkVisible = false; // Hide the new key by default
                 this.updateWalletStateUI();
                 this.showAlert(`New ${this.networkName} wallet created! Ensure you copy the Private Key shown below.`, "success");
@@ -240,6 +249,72 @@ createApp({
                 this.showAlert("Failed to create wallet. Please try again.", "danger");
                 this.clearSession();
             }
+        },
+        loadKeyPairFromPrivateKeyBytes(privateKeyBytes) {
+            const privateKey = Buffer.from(privateKeyBytes);
+            const keyPair = bitcoin.ECPair.fromPrivateKey(privateKey, { network: this.network });
+            this.keyPair = keyPair;
+            this.currentWif = keyPair.toWIF();
+            this.walletSource = 'passkey';
+            this.isPkVisible = false;
+        },
+        handlePasskeyError(error, fallbackMessage) {
+            console.error(error);
+            if (typeof PasskeyWallet !== 'undefined' && PasskeyWallet.isUserCancellation(error)) {
+                this.showAlert('Passkey request was cancelled.', 'info');
+                return;
+            }
+            this.showAlert(error && error.message ? error.message : fallbackMessage, 'danger');
+        },
+        async createPasskeyWallet() {
+            if (typeof PasskeyWallet === 'undefined') {
+                this.showAlert('Passkey support failed to load.', 'danger');
+                return;
+            }
+            if (!this.isPasskeyAvailable) {
+                this.showAlert(this.passkeySupportMessage || 'Passkeys are not available in this browser.', 'warning');
+                return;
+            }
+            try {
+                const result = await PasskeyWallet.createPasskey();
+                this.loadKeyPairFromPrivateKeyBytes(result.privateKeyBytes);
+                PasskeyWallet.saveCredentialId(result.credentialId);
+                this.hasSavedPasskey = true;
+                this.updateWalletStateUI();
+                this.showAlert(`Passkey ${this.networkName} wallet created! Use the same passkey to unlock this wallet later.`, 'success');
+            } catch (error) {
+                this.handlePasskeyError(error, 'Failed to create passkey wallet.');
+            }
+        },
+        async unlockPasskeyWallet() {
+            if (typeof PasskeyWallet === 'undefined') {
+                this.showAlert('Passkey support failed to load.', 'danger');
+                return;
+            }
+            if (!this.isPasskeyAvailable) {
+                this.showAlert(this.passkeySupportMessage || 'Passkeys are not available in this browser.', 'warning');
+                return;
+            }
+            try {
+                const savedId = PasskeyWallet.getSavedCredentialId();
+                const result = await PasskeyWallet.unlockPasskey(savedId);
+                this.loadKeyPairFromPrivateKeyBytes(result.privateKeyBytes);
+                if (result.credentialId) {
+                    PasskeyWallet.saveCredentialId(result.credentialId);
+                    this.hasSavedPasskey = true;
+                }
+                this.updateWalletStateUI();
+                this.showAlert('Passkey wallet unlocked for this session.', 'success');
+            } catch (error) {
+                this.handlePasskeyError(error, 'Failed to unlock passkey wallet. Create one first, or try a passkey that supports PRF.');
+            }
+        },
+        forgetSavedPasskey() {
+            if (typeof PasskeyWallet !== 'undefined') {
+                PasskeyWallet.clearSavedCredentialId();
+            }
+            this.hasSavedPasskey = false;
+            this.showAlert('Saved passkey removed from this browser. The authenticator passkey itself was not deleted.', 'info');
         },
         importWallet() {
              const wif = this.privateKeyInput.trim();
@@ -254,6 +329,7 @@ createApp({
             try {
                 this.keyPair = bitcoin.ECPair.fromWIF(wif, this.network);
                 this.currentWif = wif;
+                this.walletSource = 'wif';
                 this.isPkVisible = false; 
                 this.showAlert("Wallet imported successfully for this session!", "success");
                 this.privateKeyInput = ''; // Clear input model
@@ -262,11 +338,13 @@ createApp({
                 console.error("Error importing WIF:", e);
                 this.showAlert("Failed to import private key. Please check the format and try again.", "danger");
                 this.keyPair = null; // Ensure keyPair is null on failure
+                this.walletSource = 'none';
                 this.updateWalletStateUI(); // Reset UI
             }
         },
         clearSession() {
             this.keyPair = null;
+            this.walletSource = 'none';
             this.updateWalletStateUI(); 
             this.showAlert('Wallet session cleared.', 'info');
         },
@@ -540,6 +618,19 @@ createApp({
         this.currentRpcEndpoint = this.DEFAULT_TESTNET_RPC_ENDPOINT;
         this.rpcEndpointSelectValue = 'DEFAULT_TESTNET'; 
         this.showCustomRpcInput = false;
+        this.hasSavedPasskey = typeof PasskeyWallet !== 'undefined' && Boolean(PasskeyWallet.getSavedCredentialId());
+        if (typeof PasskeyWallet !== 'undefined') {
+            PasskeyWallet.detectSupport().then((support) => {
+                this.isPasskeyAvailable = support.available;
+                this.passkeySupportMessage = support.message || '';
+            }).catch((error) => {
+                console.error('Passkey support detection failed:', error);
+                this.isPasskeyAvailable = false;
+                this.passkeySupportMessage = 'Unable to detect passkey support in this browser.';
+            });
+        } else {
+            this.passkeySupportMessage = 'Passkey support failed to load.';
+        }
         // Initialize theme based on data
         this.currentTheme = 'light'; // Or detect preference
         document.documentElement.setAttribute('data-bs-theme', this.currentTheme);

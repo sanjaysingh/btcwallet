@@ -84,9 +84,17 @@
 
                                <!-- Create/Import/Clear Section -->
                                 <div v-if="showWalletManagement">
-                                    <div class="mb-3">
+                                    <div class="mb-3 d-flex flex-wrap gap-2">
                                         <button class="btn btn-primary" @click="createWallet"><i class="bi bi-plus-circle me-1"></i> Create New Wallet</button>
+                                        <button class="btn btn-outline-primary" @click="createPasskeyWallet" :disabled="!isPasskeyAvailable" title="Create a wallet unlocked with Face ID, Touch ID, or a passkey">
+                                            <i class="bi bi-fingerprint me-1"></i> Create Passkey Wallet
+                                        </button>
+                                        <button class="btn btn-outline-primary" @click="unlockPasskeyWallet" :disabled="!isPasskeyAvailable" title="Unlock a previously created passkey wallet">
+                                            <i class="bi bi-unlock me-1"></i> Unlock with Passkey
+                                        </button>
                                     </div>
+                                    <small v-if="passkeySupportMessage" class="text-muted d-block mb-3">{{ passkeySupportMessage }}</small>
+                                    <small v-else-if="hasSavedPasskey" class="text-muted d-block mb-3">A passkey wallet is saved on this device. Unlock with your passkey to restore it.</small>
                                     <div class="mb-3">
                                         <label for="private-key-input" class="form-label">Import Private Key (WIF format)</label>
                                          <div class="input-group">
@@ -101,8 +109,12 @@
 
                                <!-- Loaded Wallet Info Section -->
                                 <div v-if="showLoadedWalletDetails" class="mt-4 border-top pt-3">
+                                    <div v-if="walletSource === 'passkey'" class="mb-3">
+                                        <span class="badge text-bg-success"><i class="bi bi-fingerprint me-1"></i>Passkey wallet</span>
+                                        <p class="small text-muted mt-2 mb-0">Unlocked with your passkey for this session. Use the same passkey later to restore this wallet. The Bitcoin key is derived in the browser and never sent to a server.</p>
+                                    </div>
                                     <div class="mb-3">
-                                         <label class="form-label">Current Session Private Key (WIF):</label>
+                                         <label class="form-label">{{ walletSource === 'passkey' ? 'Backup Private Key (WIF):' : 'Current Session Private Key (WIF):' }}</label>
                                          <div class="input-group">
                                              <span class="form-control private-key-display" :class="{'text-muted': !isPkVisible}">{{ currentPrivateKeyDisplay }}</span>
                                              <button class="btn btn-outline-secondary" type="button" @click="toggleCurrentPkVisibility" title="Show/Hide Key">
@@ -114,7 +126,12 @@
                                          </div>
                                          <small class="text-danger">Never share your private key!</small>
                                     </div>
-                                    <button class="btn btn-danger btn-sm" @click="clearSession"><i class="bi bi-x-octagon me-1"></i> Clear Wallet Session</button>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button class="btn btn-danger btn-sm" @click="clearSession"><i class="bi bi-x-octagon me-1"></i> Clear Wallet Session</button>
+                                        <button v-if="walletSource === 'passkey' && hasSavedPasskey" class="btn btn-outline-secondary btn-sm" @click="forgetSavedPasskey">
+                                            <i class="bi bi-trash me-1"></i> Forget saved passkey on this device
+                                        </button>
+                                    </div>
                                </div>
                            </div>
                       </div>
@@ -230,6 +247,8 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <!-- Add Vue 3 CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.5.13/vue.global.prod.min.js" integrity="sha512-66fV4MXSQdGN0KQxZ0Bw627HalhTQYQbOoF24EtMXN2FaAoKMgAZ7nDi77d9xWwrRjEEUfE+7rxjTt+cA2IuJA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- Passkey wallet helper (WebAuthn PRF) -->
+    <script src="passkey.js"></script>
     <!-- Add our application script -->
     <script src="app.js"></script>
 </body>
