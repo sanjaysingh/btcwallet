@@ -182,6 +182,16 @@
         return Boolean(prf && (prf.enabled || prf.results?.first));
     }
 
+    function prfEvalExtension(salt) {
+        return {
+            prf: {
+                eval: {
+                    first: salt
+                }
+            }
+        };
+    }
+
     async function evaluatePrf(credentialIdBytes) {
         if (!isValidRpId(window.location.hostname)) {
             throw new Error('Passkeys cannot be used on a raw IP address. Open this app at localhost or a domain name.');
@@ -192,13 +202,7 @@
             rpId: window.location.hostname,
             userVerification: 'required',
             timeout: 60000,
-            extensions: {
-                prf: {
-                    eval: {
-                        first: salt
-                    }
-                }
-            }
+            extensions: prfEvalExtension(salt)
         };
 
         if (credentialIdBytes && credentialIdBytes.byteLength) {
@@ -225,6 +229,7 @@
             throw new Error('Passkeys cannot be used on a raw IP address. Open this app at localhost or a domain name.');
         }
         const userId = randomBytes(32);
+        const salt = await getPrfSalt();
         const credential = await navigator.credentials.create({
             publicKey: {
                 challenge: randomBytes(32),
@@ -248,9 +253,8 @@
                 },
                 timeout: 60000,
                 attestation: 'none',
-                extensions: {
-                    prf: {}
-                }
+                // Request PRF during create so saving the passkey also signs the wallet in.
+                extensions: prfEvalExtension(salt)
             }
         });
 
@@ -262,7 +266,8 @@
         let prfOutput = readPrfResult(credential);
         let credentialId = bufferToBase64Url(credentialIdBytes);
 
-        // Many browsers enable PRF on create but only return the secret from a follow-up get().
+        // Some authenticators only enable PRF on create and return the secret from a later get().
+        // Skip that extra "Sign in" prompt whenever create already produced the wallet key.
         if (!prfOutput) {
             try {
                 const evaluated = await evaluatePrf(credentialIdBytes);
