@@ -76,7 +76,7 @@
                                         <option value="mainnet">Treat unknown RPC as Mainnet (bc1)</option>
                                     </select>
                                     <input type="text" class="form-control" v-show="showCustomRpcInput" v-model="rpcEndpointCustomInput" placeholder="Enter custom Esplora API URL" ref="rpcCustomInput">
-                                    <small class="form-text text-muted d-block mt-2">Testnet4 is the current Bitcoin test network. Signet has steadier blocks. Testnet3 is deprecated. Mainnet is real BTC.</small>
+                                    <small class="form-text text-muted d-block mt-2">Testnet4 is current. Signet has steadier blocks. Testnet3 is deprecated. Mainnet is real BTC.</small>
                                 </div>
                                 <button class="btn btn-primary" @click="updateRpcAndNetwork" :disabled="isRpcUpdateDisabled"><i class="bi bi-check-circle me-1"></i> Update</button>
                                 <!-- Network status display bound to Vue data -->
