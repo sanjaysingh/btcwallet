@@ -69,6 +69,9 @@ createApp({
             hasSavedPasskey: false,
             walletAddress: 'Not loaded',
             walletBalance: 'N/A',
+            lastBalanceRefreshEndpoint: '',
+            balanceRequestId: 0,
+            balanceRefreshCount: 0,
             balanceUnit: 'BTC',
             isLoading: false,
             isRefreshingBalances: false,
@@ -203,6 +206,7 @@ createApp({
             }
         },
         onRpcEndpointChange() {
+            clearTimeout(this.customRpcUpdateTimer);
             this.updateRpcSelection();
             if (this.rpcEndpointSelectValue === 'CUSTOM') {
                 if (!this.rpcEndpointCustomInput) {
@@ -307,12 +311,14 @@ createApp({
                 this.sessionPanelOpen = false;
                 this.walletAddress = 'Not loaded';
                 this.walletBalance = 'N/A';
+                this.lastBalanceRefreshEndpoint = '';
                 this.currentWif = '';
                 this.walletSource = 'none';
                 this.isPkVisible = false;
                 this.privateKeyInput = ''; // Clear import input
                 this.showTxInfo = false;
                 this.isRefreshingBalances = false;
+                this.balanceRefreshCount = 0;
                 // Clear QR code if wallet is cleared and receive tab might be open
                 if (this.$refs.qrCodeDiv) {
                     this.generateQrCode();
@@ -455,26 +461,61 @@ createApp({
             if (!silent) {
                 this.walletBalance = 'Loading...';
             }
+            const requestId = ++this.balanceRequestId;
+            const endpoint = this.currentRpcEndpoint;
+            const address = this.walletAddress;
             const utxos = await this.getUtxos({ silent });
+            if (
+                requestId !== this.balanceRequestId
+                || !this.isWalletLoaded
+                || this.currentRpcEndpoint !== endpoint
+                || this.walletAddress !== address
+            ) {
+                return;
+            }
             if (utxos) {
                 const confirmedBalance = utxos
                     .filter(utxo => utxo.status.confirmed)
                     .reduce((sum, utxo) => sum + utxo.value, 0);
                 this.walletBalance = this.satoshisToBtc(confirmedBalance).toFixed(8);
+                this.lastBalanceRefreshEndpoint = endpoint;
             } else {
                 this.walletBalance = 'Error';
             }
         },
-        async refreshBalances() {
-            if (!this.isWalletLoaded || this.isRefreshingBalances) {
+        isBalanceFreshForCurrentRpc() {
+            return this.lastBalanceRefreshEndpoint === this.currentRpcEndpoint
+                && this.walletBalance !== 'Loading...'
+                && this.walletBalance !== 'N/A'
+                && this.walletBalance !== 'Error';
+        },
+        async refreshBalances({ force = false } = {}) {
+            if (!this.isWalletLoaded) {
                 return;
             }
+            if (this.isRefreshingBalances && !force) {
+                return;
+            }
+            this.balanceRefreshCount += 1;
             this.isRefreshingBalances = true;
             try {
                 await this.fetchBalance({ silent: true });
             } finally {
-                this.isRefreshingBalances = false;
+                this.balanceRefreshCount = Math.max(0, this.balanceRefreshCount - 1);
+                this.isRefreshingBalances = this.balanceRefreshCount > 0;
             }
+        },
+        async refreshBalanceAfterNetworkSwitch() {
+            if (!this.isWalletLoaded) {
+                return;
+            }
+            if (this.isBalanceFreshForCurrentRpc()) {
+                return;
+            }
+            this.walletBalance = 'Loading...';
+            this.lastBalanceRefreshEndpoint = '';
+            this.balanceRequestId += 1;
+            await this.refreshBalances({ force: true });
         },
         async broadcastTransaction(txHex) {
             this.showLoading(true);
@@ -681,9 +722,9 @@ createApp({
                  this.networkStatusText = `Selected Network: ${this.networkName}`;
                  this.networkStatusClass = `network-status ${this.isTestnet ? 'text-info' : 'text-primary'}`; 
 
-                // Refresh balance if wallet is STILL loaded (i.e., wasn't cleared)
-                if (this.isWalletLoaded) { 
-                     this.fetchBalance({ silent: true });
+                // Always replace a previous-network balance when the wallet stays loaded
+                if (this.isWalletLoaded) {
+                    await this.refreshBalanceAfterNetworkSwitch();
                 }
                 
             } catch (error) {
