@@ -5,7 +5,7 @@ A simple Bitcoin wallet web app for testing and experimentation. Perfect for dev
 ## ✨ What it does
 
 - Create new Bitcoin wallets, import existing ones, or unlock with a passkey
-- Send and receive Bitcoin on testnet/mainnet
+- Send and receive Bitcoin on testnet4/mainnet
 - Connect to different RPC endpoints (including your own)
 - Clean, responsive web interface with dark/light theme
 - Copy addresses and private keys with one click
@@ -14,7 +14,7 @@ A simple Bitcoin wallet web app for testing and experimentation. Perfect for dev
 
 1. **Open the wallet**: Just open `index.html` in your browser (use HTTPS or localhost for passkeys)
 2. **Create a wallet**: Click "Create New Wallet", "Create Passkey Wallet", or import an existing private key
-3. **Switch networks**: Choose testnet for safe testing (recommended!)
+3. **Switch networks**: Choose testnet4 for safe testing (recommended!)
 4. **Start transacting**: Send and receive Bitcoin
 
 ### Passkey wallets
@@ -61,7 +61,8 @@ The build scripts will generate the library files in the `libs/` folder, keeping
 ## ⚠️ Important Notes
 
 - **For testing only** - don't use this for large amounts of real Bitcoin
-- Always use testnet when experimenting
+- Always use testnet4 when experimenting
+- The default Esplora RPC is [mempool.space testnet4](https://mempool.space/testnet4/api/). Testnet3 is still recognized if you enter a custom Esplora URL for that chain.
 - Never share your private keys
 - This runs entirely in your browser (no server needed)
 - All library dependencies are kept in the `libs/` folder for better organization
