@@ -1,25 +1,29 @@
 const { createApp } = Vue;
 
-// Identify the chain from the Esplora genesis hash. Testnet4 and testnet3 share
-// address encoding (tb1..., same WIF version), so bitcoinjs-lib's `networks.testnet`
-// is used for both. Block height cannot distinguish them from mainnet: testnet4
-// is currently well below mainnet height, while testnet3 is far above it.
+// Identify the chain from the Esplora genesis hash. Testnet4, testnet3, and
+// Signet share address encoding (tb1..., same WIF version), so bitcoinjs-lib's
+// `networks.testnet` is used for all of them. Block height cannot distinguish
+// them from mainnet: testnet4 and Signet are currently well below mainnet
+// height, while testnet3 is far above it.
 const NETWORK_BY_GENESIS = {
     '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f': 'mainnet',
     '000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943': 'testnet3',
     '00000000da84f2bafbbc53dee25a72ae507ff4914b867c565be350b0da8bf043': 'testnet4',
+    '00000008819873e925422c1ff0f99f7cc9bbb232af63a077a480a3633bee1ef6': 'signet',
 };
 
 const NETWORK_DISPLAY_NAMES = {
     mainnet: 'Mainnet',
     testnet3: 'Testnet3',
     testnet4: 'Testnet4',
+    signet: 'Signet',
 };
 
 const NETWORK_EXPLORERS = {
     mainnet: 'https://mempool.space/',
     testnet3: 'https://mempool.space/testnet/',
     testnet4: 'https://mempool.space/testnet4/',
+    signet: 'https://mempool.space/signet/',
 };
 
 createApp({
@@ -28,17 +32,22 @@ createApp({
             // Configuration (non-reactive might be fine, but keeping for simplicity)
             DEFAULT_MAINNET_RPC_ENDPOINT: 'https://blockstream.info/api/',
             DEFAULT_TESTNET_RPC_ENDPOINT: 'https://mempool.space/testnet4/api/',
+            DEFAULT_SIGNET_RPC_ENDPOINT: 'https://mempool.space/signet/api/',
             MIN_CONFIRMATIONS: 1,
 
             // RPC Options for dropdown
             rpcOptions: [
                 {
                     value: 'DEFAULT_TESTNET',
-                    text: 'https://mempool.space/testnet4/api/' // Use the URL directly
+                    text: 'Testnet4 — https://mempool.space/testnet4/api/'
+                },
+                {
+                    value: 'DEFAULT_SIGNET',
+                    text: 'Signet — https://mempool.space/signet/api/'
                 },
                 {
                     value: 'DEFAULT_MAINNET',
-                    text: 'https://blockstream.info/api/' // Use the URL directly
+                    text: 'Mainnet — https://blockstream.info/api/'
                 },
                 {
                     value: 'CUSTOM',
@@ -118,19 +127,8 @@ createApp({
         },
         // Computed property to disable RPC update if selection hasn't changed
         isRpcUpdateDisabled() {
-            let selectedRpc = '';
-            if (this.rpcEndpointSelectValue === 'DEFAULT_TESTNET') {
-                selectedRpc = this.DEFAULT_TESTNET_RPC_ENDPOINT;
-            } else if (this.rpcEndpointSelectValue === 'DEFAULT_MAINNET') {
-                selectedRpc = this.DEFAULT_MAINNET_RPC_ENDPOINT;
-            } else if (this.rpcEndpointSelectValue === 'CUSTOM') {
-                selectedRpc = this.rpcEndpointCustomInput.trim();
-                // Normalize custom input for comparison (add trailing slash if missing)
-                if (selectedRpc && !selectedRpc.endsWith('/')) {
-                     selectedRpc += '/';
-                }
-            } 
-            return selectedRpc === this.currentRpcEndpoint;
+            const selectedRpc = this.resolveSelectedRpc();
+            return !selectedRpc || selectedRpc === this.currentRpcEndpoint;
         },
         // Optional: Computed property for theme icon class
         themeIconClass() {
@@ -175,6 +173,22 @@ createApp({
         getAddress(node) {
             if (!node) return null;
             return bitcoin.payments.p2wpkh({ pubkey: node.publicKey, network: this.network }).address;
+        },
+        resolveSelectedRpc() {
+            let selectedRpc = '';
+            if (this.rpcEndpointSelectValue === 'DEFAULT_TESTNET') {
+                selectedRpc = this.DEFAULT_TESTNET_RPC_ENDPOINT;
+            } else if (this.rpcEndpointSelectValue === 'DEFAULT_SIGNET') {
+                selectedRpc = this.DEFAULT_SIGNET_RPC_ENDPOINT;
+            } else if (this.rpcEndpointSelectValue === 'DEFAULT_MAINNET') {
+                selectedRpc = this.DEFAULT_MAINNET_RPC_ENDPOINT;
+            } else if (this.rpcEndpointSelectValue === 'CUSTOM') {
+                selectedRpc = this.rpcEndpointCustomInput.trim();
+            }
+            if (selectedRpc && !selectedRpc.endsWith('/')) {
+                selectedRpc += '/';
+            }
+            return selectedRpc;
         },
         updateRpcSelection() {
              if (this.rpcEndpointSelectValue === 'CUSTOM') {
@@ -559,17 +573,7 @@ createApp({
         },
         // Update RPC & Network Detection
         async updateRpcAndNetwork() {
-             let targetRpc = '';
-            if (this.rpcEndpointSelectValue === 'DEFAULT_TESTNET') {
-                targetRpc = this.DEFAULT_TESTNET_RPC_ENDPOINT;
-            } else if (this.rpcEndpointSelectValue === 'DEFAULT_MAINNET') {
-                targetRpc = this.DEFAULT_MAINNET_RPC_ENDPOINT;
-            } else if (this.rpcEndpointSelectValue === 'CUSTOM') {
-                targetRpc = this.rpcEndpointCustomInput.trim();
-            } else {
-                this.showAlert("Invalid RPC selection.", "warning");
-                return;
-            }
+            const targetRpc = this.resolveSelectedRpc();
 
             if (!targetRpc) {
                  this.showAlert("RPC Endpoint URL cannot be empty.", "warning");
@@ -578,9 +582,6 @@ createApp({
             if (!targetRpc.startsWith('http://') && !targetRpc.startsWith('https://')) {
                  this.showAlert("Invalid RPC URL. Must start with http:// or https://", "warning");
                  return;
-            }
-            if (!targetRpc.endsWith('/')) {
-                targetRpc += '/';
             }
 
              this.networkStatusText = 'Selected Network: Detecting...';
@@ -594,7 +595,7 @@ createApp({
                 const detectedNetworkId = NETWORK_BY_GENESIS[genesisHash];
 
                 if (!detectedNetworkId) {
-                    throw new Error(`Unknown genesis block ${genesisHash}. Expected mainnet, testnet3, or testnet4.`);
+                    throw new Error(`Unknown genesis block ${genesisHash}. Expected mainnet, testnet3, testnet4, or signet.`);
                 }
 
                 const detectedNetworkIsTestnet = detectedNetworkId !== 'mainnet';
