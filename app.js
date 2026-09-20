@@ -195,6 +195,27 @@ createApp({
             if (!node) return null;
             return bitcoin.payments.p2wpkh({ pubkey: node.publicKey, network: this.network }).address;
         },
+        // Same 32-byte secret, new address encoding (bc1 vs tb1) and WIF version.
+        rebindLoadedWalletToNetwork() {
+            if (!this.keyPair) {
+                return;
+            }
+            if (!this.keyPair.privateKey) {
+                this.clearSession();
+                return;
+            }
+            this.keyPair = bitcoin.ECPair.fromPrivateKey(
+                Buffer.from(this.keyPair.privateKey),
+                { network: this.network }
+            );
+            this.currentWif = this.keyPair.toWIF();
+            this.walletAddress = this.getAddress(this.keyPair);
+            this.showTxInfo = false;
+            this.txId = '';
+            this.txLink = '#';
+            this.txStatus = '';
+            this.generateQrCode();
+        },
         resolveSelectedRpc() {
             let selectedRpc = '';
             if (this.rpcEndpointSelectValue === 'DEFAULT_TESTNET') {
@@ -765,22 +786,16 @@ createApp({
                 }
 
                 const detectedNetworkIsTestnet = detectedNetworkId !== 'mainnet';
-                const previousNetworkIsTestnet = this.isTestnet;
 
-                // If network changed and wallet exists, clear session WITHOUT confirmation
-                if (this.isWalletLoaded && detectedNetworkIsTestnet !== previousNetworkIsTestnet) {
-                     this.clearSession(); // Clears wallet state - This will trigger reactive UI updates
-                }
-
-                // Update state regardless of whether session was cleared
                 this.networkId = detectedNetworkId;
                 this.network = detectedNetworkIsTestnet ? bitcoin.networks.testnet : bitcoin.networks.bitcoin;
                 this.currentRpcEndpoint = targetRpc;
 
                  this.networkStatusText = `Selected Network: ${this.networkName}`;
-                 this.networkStatusClass = `network-status ${this.isTestnet ? 'text-info' : 'text-primary'}`; 
+                 this.networkStatusClass = `network-status ${this.isTestnet ? 'text-info' : 'text-primary'}`;
 
                 if (this.isWalletLoaded) {
+                    this.rebindLoadedWalletToNetwork();
                     await this.refreshBalanceAfterNetworkSwitch();
                 }
                 
