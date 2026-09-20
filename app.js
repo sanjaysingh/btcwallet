@@ -39,15 +39,15 @@ createApp({
             rpcOptions: [
                 {
                     value: 'DEFAULT_TESTNET',
-                    text: 'Testnet4 — https://mempool.space/testnet4/api/'
+                    text: 'Testnet4'
                 },
                 {
                     value: 'DEFAULT_SIGNET',
-                    text: 'Signet — https://mempool.space/signet/api/'
+                    text: 'Signet'
                 },
                 {
                     value: 'DEFAULT_MAINNET',
-                    text: 'Mainnet — https://blockstream.info/api/'
+                    text: 'Mainnet'
                 },
                 {
                     value: 'CUSTOM',
@@ -71,6 +71,7 @@ createApp({
             walletBalance: 'N/A',
             balanceUnit: 'BTC',
             isLoading: false,
+            isRefreshingBalances: false,
             alerts: [], // Array to hold alert messages { message, type, id }
 
             // Input Models
@@ -91,6 +92,7 @@ createApp({
             // UI State
             showWalletManagement: true,
             showLoadedWalletDetails: false,
+            sessionPanelOpen: false,
             showCustomRpcInput: false,
             currentTheme: 'light', // Added for theme toggling
 
@@ -109,6 +111,13 @@ createApp({
         },
         currentPrivateKeyDisplay() {
              return this.isPkVisible ? this.currentWif : this.maskedWif;
+        },
+        shortWalletAddress() {
+            const address = this.walletAddress;
+            if (!address || address === 'Not loaded' || address.length <= 22) {
+                return address;
+            }
+            return `${address.slice(0, 10)}…${address.slice(-8)}`;
         },
         isWalletLoaded() {
             return this.keyPair !== null;
@@ -197,6 +206,15 @@ createApp({
                 this.showCustomRpcInput = false;
             }
         },
+        onRpcEndpointChange() {
+            this.updateRpcSelection();
+            if (this.rpcEndpointSelectValue !== 'CUSTOM') {
+                this.updateRpcAndNetwork();
+            }
+        },
+        toggleSessionPanel() {
+            this.sessionPanelOpen = !this.sessionPanelOpen;
+        },
         async copyToClipboard(text, successMessage) {
              if (!text) return;
             try {
@@ -256,21 +274,23 @@ createApp({
             // This replaces parts of the old updateUI
             this.showWalletManagement = !this.isWalletLoaded;
             this.showLoadedWalletDetails = this.isWalletLoaded;
-            if (this.isWalletLoaded) {
-                this.walletAddress = this.getAddress(this.keyPair);
-                this.fetchBalance(); 
+            if (!this.isWalletLoaded) {
+                this.sessionPanelOpen = false;
+                this.walletAddress = 'Not loaded';
+                this.walletBalance = 'N/A';
+                this.currentWif = '';
+                this.walletSource = 'none';
+                this.isPkVisible = false;
+                this.privateKeyInput = ''; // Clear import input
+                this.showTxInfo = false;
+                this.isRefreshingBalances = false;
+                // Clear QR code if wallet is cleared and receive tab might be open
+                if (this.$refs.qrCodeDiv) {
+                    this.generateQrCode();
+                }
             } else {
-                 this.walletAddress = 'Not loaded';
-                 this.walletBalance = 'N/A';
-                 this.currentWif = '';
-                 this.walletSource = 'none';
-                 this.isPkVisible = false;
-                 this.privateKeyInput = ''; // Clear import input
-                 this.showTxInfo = false;
-                 // Clear QR code if wallet is cleared and receive tab might be open
-                 if (this.$refs.qrCodeDiv) { 
-                     this.generateQrCode(); 
-                 }
+                this.walletAddress = this.getAddress(this.keyPair);
+                this.fetchBalance();
             }
         },
 
@@ -282,7 +302,7 @@ createApp({
                 this.walletSource = 'wif';
                 this.isPkVisible = false; // Hide the new key by default
                 this.updateWalletStateUI();
-                this.showAlert(`New ${this.networkName} wallet created! Ensure you copy the Private Key shown below.`, "success");
+                this.showAlert(`New ${this.networkName} wallet created. Open Session to copy the private key.`, "success");
             } catch (error) {
                 console.error("Error creating wallet:", error);
                 this.showAlert("Failed to create wallet. Please try again.", "danger");
@@ -348,13 +368,6 @@ createApp({
                 this.handlePasskeyError(error, 'Failed to unlock passkey wallet. Create one first, or try a passkey that supports PRF.');
             }
         },
-        forgetSavedPasskey() {
-            if (typeof PasskeyWallet !== 'undefined') {
-                PasskeyWallet.clearSavedCredentialId();
-            }
-            this.hasSavedPasskey = false;
-            this.showAlert('Saved passkey removed from this browser. The authenticator passkey itself was not deleted.', 'info');
-        },
         importWallet() {
              const wif = this.privateKeyInput.trim();
              if (!wif) {
@@ -389,9 +402,11 @@ createApp({
         },
 
         // --- Bitcoin Network Interaction ---
-        async getUtxos() {
+        async getUtxos({ silent = false } = {}) {
              if (!this.walletAddress || this.walletAddress === 'Not loaded') return [];
-            this.showLoading(true);
+            if (!silent) {
+                this.showLoading(true);
+            }
             try {
                 const url = `${this.currentRpcEndpoint}address/${this.walletAddress}/utxo`;
                 const response = await axios.get(url, { timeout: 10000 });
@@ -401,13 +416,17 @@ createApp({
                 this.showAlert(`Failed to fetch UTXOs. Check RPC endpoint and network connection. Error: ${error.message}`, "danger");
                 return [];
             } finally {
-                this.showLoading(false);
+                if (!silent) {
+                    this.showLoading(false);
+                }
             }
         },
-        async fetchBalance() {
+        async fetchBalance({ silent = false } = {}) {
              if (!this.isWalletLoaded) return;
-            this.walletBalance = 'Loading...';
-            const utxos = await this.getUtxos();
+            if (!silent) {
+                this.walletBalance = 'Loading...';
+            }
+            const utxos = await this.getUtxos({ silent });
             if (utxos) {
                 const confirmedBalance = utxos
                     .filter(utxo => utxo.status.confirmed)
@@ -415,6 +434,17 @@ createApp({
                 this.walletBalance = this.satoshisToBtc(confirmedBalance).toFixed(8);
             } else {
                 this.walletBalance = 'Error';
+            }
+        },
+        async refreshBalances() {
+            if (!this.isWalletLoaded || this.isRefreshingBalances) {
+                return;
+            }
+            this.isRefreshingBalances = true;
+            try {
+                await this.fetchBalance({ silent: true });
+            } finally {
+                this.isRefreshingBalances = false;
             }
         },
         async broadcastTransaction(txHex) {
@@ -585,7 +615,7 @@ createApp({
             }
 
              this.networkStatusText = 'Selected Network: Detecting...';
-             this.networkStatusClass = 'form-text text-muted d-block mt-2'; // Default class while detecting
+             this.networkStatusClass = 'network-status text-muted';
             this.showLoading(true);
 
             try {
@@ -613,7 +643,7 @@ createApp({
 
                 this.showAlert(`RPC Endpoint updated. Detected Network: ${this.networkName}`, "success");
                  this.networkStatusText = `Selected Network: ${this.networkName} (Detected)`;
-                 this.networkStatusClass = `form-text d-block mt-2 ${this.isTestnet ? 'text-info' : 'text-primary'}`; 
+                 this.networkStatusClass = `network-status ${this.isTestnet ? 'text-info' : 'text-primary'}`; 
 
                 // Refresh balance if wallet is STILL loaded (i.e., wasn't cleared)
                 if (this.isWalletLoaded) { 
@@ -624,7 +654,7 @@ createApp({
                 console.error("Error detecting network or updating RPC:", error);
                 this.showAlert(`Failed to connect or detect network for ${targetRpc}. Please check the URL and try again. Error: ${error.message}`, "danger");
                  this.networkStatusText = `Selected Network: Detection Failed`;
-                 this.networkStatusClass = 'form-text text-danger d-block mt-2';
+                 this.networkStatusClass = 'network-status text-danger';
             } finally {
                  this.showLoading(false);
             }
@@ -667,7 +697,7 @@ createApp({
 
          // Set initial network status text
          this.networkStatusText = `Selected Network: ${this.networkName} (Default)`;
-         this.networkStatusClass = `form-text d-block mt-2 ${this.isTestnet ? 'text-info' : 'text-primary'}`;
+         this.networkStatusClass = `network-status ${this.isTestnet ? 'text-info' : 'text-primary'}`;
 
         // Listen for Receive tab being shown to generate QR code
          const receiveTabTrigger = document.getElementById('receive-tab'); // Get the button that triggers the tab
@@ -679,6 +709,15 @@ createApp({
              });
          } else {
              console.error("Could not find the receive tab trigger element (#receive-tab).");
+         }
+
+         const walletTabTrigger = document.getElementById('info-tab');
+         if (walletTabTrigger) {
+             walletTabTrigger.addEventListener('shown.bs.tab', () => {
+                 if (this.isWalletLoaded) {
+                    this.refreshBalances();
+                 }
+             });
          }
     }
 }).mount('#app');

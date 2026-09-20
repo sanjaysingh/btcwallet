@@ -13,8 +13,8 @@
     <!-- Vue App Root -->
     <div id="app" v-cloak>
         <!-- Header - Full width, content aligned to page edges -->
-        <header class="mb-4 p-2 bg-info-subtle d-flex justify-content-between align-items-center"> <!-- Changed p-3 to p-2 -->
-            <h1 class="h3 mb-0"><i class="bi bi-bitcoin me-2"></i>Bitcoin Wallet (Testing Only)</h1> 
+        <header class="mb-4 p-2 bg-info-subtle d-flex justify-content-between align-items-center">
+            <h1 class="h3 mb-0"><i class="bi bi-bitcoin me-2"></i>Bitcoin Wallet <small class="fs-6 text-muted fw-normal">(Testing Only)</small></h1>
             <span class="theme-toggle" @click="toggleTheme" style="cursor: pointer;">
                 <i :class="['bi', currentTheme === 'dark' ? 'bi-moon-stars-fill' : 'bi-sun-fill']"></i>
             </span>
@@ -58,109 +58,147 @@
                   <!-- Wallet Info Pane -->
                   <div class="tab-pane fade show active" id="info-tab-pane" role="tabpanel" aria-labelledby="info-tab" tabindex="0">
 
-                       <!-- Network & RPC Card -->
-                       <div class="card shadow-sm mb-4">
-                           <div class="card-body">
-                                <h5 class="card-title mb-3"><i class="bi bi-gear-wide-connected me-1"></i> Network & RPC</h5>
-                                <div class="mb-3">
-                                    <label for="rpc-endpoint-select" class="form-label">RPC Endpoint</label>
-                                    <select class="form-select mb-2" id="rpc-endpoint-select" v-model="rpcEndpointSelectValue" @change="updateRpcSelection">
-                                        <!-- Dynamically generate options -->
-                                        <option v-for="option in rpcOptions" :key="option.value" :value="option.value">
-                                            {{ option.text }}
-                                        </option>
-                                    </select>
-                                    <input type="text" class="form-control" v-show="showCustomRpcInput" v-model="rpcEndpointCustomInput" placeholder="Enter custom Esplora API URL" ref="rpcCustomInput">
-                                </div>
-                                <button class="btn btn-primary" @click="updateRpcAndNetwork" :disabled="isRpcUpdateDisabled"><i class="bi bi-check-circle me-1"></i> Update</button>
-                                <!-- Network status display bound to Vue data -->
-                                <small :class="networkStatusClass">{{ networkStatusText }}</small>
-                           </div>
+                       <!-- Compact network row -->
+                       <div class="network-toolbar">
+                            <div class="network-toolbar-row">
+                                <label for="rpc-endpoint-select" class="form-label">Network</label>
+                                <select class="form-select" id="rpc-endpoint-select" v-model="rpcEndpointSelectValue" @change="onRpcEndpointChange">
+                                    <option v-for="option in rpcOptions" :key="option.value" :value="option.value">
+                                        {{ option.text }}
+                                    </option>
+                                </select>
+                                <button class="btn btn-primary btn-sm network-update-btn" type="button" @click="updateRpcAndNetwork" :disabled="isRpcUpdateDisabled">Update</button>
+                            </div>
+                            <small :class="networkStatusClass">{{ networkStatusText }}</small>
+                            <div class="mt-2" v-show="showCustomRpcInput">
+                                <label for="rpc-custom-input" class="form-label">RPC Endpoint URL</label>
+                                <input type="text" class="form-control" id="rpc-custom-input" v-model="rpcEndpointCustomInput" placeholder="Enter custom Esplora API URL" ref="rpcCustomInput" @keyup.enter="updateRpcAndNetwork">
+                            </div>
                        </div>
 
-                      <!-- Manage Wallet Session Card -->
-                      <div class="card shadow-sm mb-4">
-                           <div class="card-body">
-                               <h5 class="card-title mb-3"><i class="bi bi-key-fill me-1"></i> Manage Wallet Session</h5>
+                      <!-- Loaded wallet dashboard -->
+                      <div class="card shadow-sm mb-4" v-if="isWalletLoaded">
+                          <div class="card-body">
+                              <div class="wallet-balance-hero">
+                                  <button
+                                      type="button"
+                                      class="balance-refresh"
+                                      :disabled="isRefreshingBalances"
+                                      title="Refresh balance"
+                                      @click="refreshBalances"
+                                  >
+                                      <span v-if="isRefreshingBalances" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                      <i v-else class="bi bi-arrow-clockwise"></i>
+                                      <span class="visually-hidden">Refresh balance</span>
+                                  </button>
+                                  <div class="balance-display">{{ walletBalance }} {{ balanceUnit }}</div>
+                                  <div class="text-muted small">{{ networkName }}</div>
+                              </div>
+                              <div class="account-row">
+                                  <div class="account-row-info">
+                                      <div class="address-display">{{ shortWalletAddress }}</div>
+                                  </div>
+                                  <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard(walletAddress, 'Address copied!')" title="Copy Address">
+                                      <i class="bi bi-wallet2"></i>
+                                  </button>
+                              </div>
+                          </div>
+                      </div>
 
-                               <!-- Create/Import/Clear Section -->
-                                <div v-if="showWalletManagement">
-                                    <div class="mb-3 d-flex flex-wrap gap-2">
-                                        <button class="btn btn-primary" @click="createWallet"><i class="bi bi-plus-circle me-1"></i> Create New Wallet</button>
-                                        <button class="btn btn-outline-primary" @click="createPasskeyWallet" :disabled="!isPasskeyAvailable" title="Create a wallet unlocked with Face ID, Touch ID, or a passkey">
-                                            <i class="bi bi-fingerprint me-1"></i> Create Passkey Wallet
+                      <!-- Session panel (collapsed by default) -->
+                      <div class="card shadow-sm mb-4" v-if="isWalletLoaded">
+                          <button
+                              type="button"
+                              class="session-panel-toggle"
+                              :aria-expanded="sessionPanelOpen ? 'true' : 'false'"
+                              aria-controls="session-panel-body"
+                              @click="toggleSessionPanel"
+                          >
+                              <span><i class="bi bi-key-fill me-1"></i> Session</span>
+                              <i :class="['bi', sessionPanelOpen ? 'bi-chevron-up' : 'bi-chevron-down']"></i>
+                          </button>
+                          <div id="session-panel-body" class="card-body border-top" v-show="sessionPanelOpen">
+                              <div class="mb-3" v-if="!showCustomRpcInput">
+                                  <label class="form-label">RPC Endpoint URL</label>
+                                  <input type="text" class="form-control bg-secondary-subtle" :value="currentRpcEndpoint" readonly>
+                              </div>
+                              <div v-if="isPasskeyWallet" class="mb-3">
+                                  <span class="badge text-bg-success"><i class="bi bi-fingerprint me-1"></i>Passkey wallet</span>
+                                  <p class="small text-muted mt-2 mb-0">This key is derived from your device passkey (WebAuthn PRF) for this session.</p>
+                              </div>
+                              <div class="mb-3">
+                                   <label class="form-label">{{ isPasskeyWallet ? 'Backup private key (WIF)' : 'Private key (WIF)' }}</label>
+                                   <div class="input-group">
+                                       <span class="form-control private-key-display" :class="{'text-muted': !isPkVisible}">{{ currentPrivateKeyDisplay }}</span>
+                                       <button class="btn btn-outline-secondary" type="button" @click="toggleCurrentPkVisibility" title="Show/Hide Key">
+                                           <i :class="['bi', isPkVisible ? 'bi-eye-slash-fill' : 'bi-eye-fill']"></i>
+                                       </button>
+                                       <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard(currentWif, 'Private key copied!')" title="Copy Private Key">
+                                           <i class="bi bi-key"></i>
+                                      </button>
+                                   </div>
+                                   <small class="text-danger">Never share your private key!</small>
+                              </div>
+                              <button class="btn btn-danger btn-sm" @click="clearSession"><i class="bi bi-x-octagon me-1"></i> Clear Wallet Session</button>
+                          </div>
+                      </div>
+
+                      <!-- Open a wallet (empty state) -->
+                      <div class="card shadow-sm mb-4" v-if="showWalletManagement">
+                           <div class="card-body">
+                               <h5 class="card-title mb-4">Open a wallet</h5>
+
+                                <section class="open-wallet-section">
+                                    <h6 class="open-wallet-section-label">Create</h6>
+                                    <div class="create-wallet-actions">
+                                        <button class="create-choice" type="button" @click="createWallet" title="Create a new private key wallet">
+                                            <i class="bi bi-key"></i>
+                                            <span>Private key</span>
                                         </button>
-                                        <button class="btn btn-outline-primary" @click="unlockPasskeyWallet" :disabled="!isPasskeyAvailable" title="Unlock a previously created passkey wallet">
-                                            <i class="bi bi-unlock me-1"></i> Unlock with Passkey
+                                        <button
+                                            class="create-choice"
+                                            type="button"
+                                            @click="createPasskeyWallet"
+                                            :disabled="!isPasskeyAvailable"
+                                            :title="isPasskeyAvailable ? 'Create a wallet unlocked with Face ID, Touch ID, or a passkey' : (passkeySupportMessage || 'Passkeys require HTTPS or http://localhost in a supported browser')"
+                                        >
+                                            <i class="bi bi-fingerprint"></i>
+                                            <span>Passkey</span>
                                         </button>
                                     </div>
-                                    <small v-if="passkeySupportMessage" class="text-muted d-block mb-3">{{ passkeySupportMessage }}</small>
-                                    <small v-else-if="hasSavedPasskey" class="text-muted d-block mb-3">A passkey wallet is saved on this device. Unlock with your passkey to restore it.</small>
-                                    <div class="mb-3">
-                                        <label for="private-key-input" class="form-label">Import Private Key (WIF format)</label>
+                                    <p v-if="passkeySupportMessage" class="text-warning small mb-0 mt-2">{{ passkeySupportMessage }}</p>
+                                </section>
+
+                                <section class="open-wallet-section">
+                                    <h6 class="open-wallet-section-label">Import</h6>
+                                    <form @submit.prevent="importWallet">
+                                         <label for="private-key-input" class="visually-hidden">Private key (WIF)</label>
                                          <div class="input-group">
-                                             <input :type="pkInputType" class="form-control" id="private-key-input" placeholder="Enter WIF private key to import" v-model="privateKeyInput">
+                                             <input :type="pkInputType" class="form-control" id="private-key-input"
+                                                    name="wallet-secret"
+                                                    autocomplete="off"
+                                                    placeholder="WIF private key" v-model="privateKeyInput">
                                              <button class="btn btn-outline-secondary" type="button" @click="togglePkInputVisibility" title="Show/Hide Key">
                                                 <i :class="['bi', pkInputType === 'password' ? 'bi-eye-fill' : 'bi-eye-slash-fill']"></i>
                                              </button>
-                                             <button class="btn btn-primary" type="button" @click="importWallet"><i class="bi bi-box-arrow-in-right me-1"></i> Import</button>
-                                         </div>
-                                    </div>
-                                </div>
-
-                               <!-- Loaded Wallet Info Section -->
-                                <div v-if="showLoadedWalletDetails" class="mt-4 border-top pt-3">
-                                    <div v-if="isPasskeyWallet" class="mb-3">
-                                        <span class="badge text-bg-success"><i class="bi bi-fingerprint me-1"></i>Passkey wallet</span>
-                                        <p class="small text-muted mt-2 mb-0">Unlocked with your passkey for this session. Use the same passkey later to restore this wallet. The Bitcoin key is derived in the browser and never sent to a server.</p>
-                                    </div>
-                                    <div class="mb-3">
-                                         <label class="form-label">{{ isPasskeyWallet ? 'Backup Private Key (WIF):' : 'Current Session Private Key (WIF):' }}</label>
-                                         <div class="input-group">
-                                             <span class="form-control private-key-display" :class="{'text-muted': !isPkVisible}">{{ currentPrivateKeyDisplay }}</span>
-                                             <button class="btn btn-outline-secondary" type="button" @click="toggleCurrentPkVisibility" title="Show/Hide Key">
-                                                 <i :class="['bi', isPkVisible ? 'bi-eye-slash-fill' : 'bi-eye-fill']"></i>
+                                             <button class="btn btn-primary" type="submit" :disabled="!privateKeyInput" title="Import Wallet">
+                                                Import
                                              </button>
-                                             <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard(currentWif, 'Private key copied!')" title="Copy Private Key">
-                                                 <i class="bi bi-clipboard"></i>
-                                            </button>
                                          </div>
-                                         <small class="text-danger">Never share your private key!</small>
-                                    </div>
-                                    <div class="d-flex flex-wrap gap-2">
-                                        <button class="btn btn-danger btn-sm" @click="clearSession"><i class="bi bi-x-octagon me-1"></i> Clear Wallet Session</button>
-                                        <button v-if="isPasskeyWallet && hasSavedPasskey" class="btn btn-outline-secondary btn-sm" @click="forgetSavedPasskey">
-                                            <i class="bi bi-trash me-1"></i> Forget saved passkey on this device
+                                    </form>
+                                    <div class="import-alt">
+                                        <button
+                                            class="import-passkey-btn"
+                                            type="button"
+                                            @click="unlockPasskeyWallet"
+                                            :disabled="!isPasskeyAvailable"
+                                            :title="isPasskeyAvailable ? 'Import a wallet from an existing device passkey' : (passkeySupportMessage || 'Passkeys require HTTPS or http://localhost in a supported browser')"
+                                        >
+                                            <i class="bi bi-fingerprint"></i> Import passkey
                                         </button>
                                     </div>
-                               </div>
-                           </div>
-                      </div>
-
-                      <!-- Wallet Details Card -->
-                      <div class="card shadow-sm mb-4">
-                           <div class="card-body">
-                               <h5 class="card-title mb-3"><i class="bi bi-info-circle me-1"></i> Wallet Details</h5>
-                                <div class="mb-3">
-                                    <label class="form-label">Address:</label>
-                                    <div class="input-group">
-                                         <span class="form-control address-display">{{ walletAddress }}</span>
-                                         <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard(walletAddress, 'Address copied!')" title="Copy Address" :disabled="!isWalletLoaded">
-                                             <i class="bi bi-clipboard"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="mb-2">
-                                    <label class="form-label">Balance:</label>
-                                    <div class="d-flex align-items-center">
-                                        <span class="balance-display me-2">{{ walletBalance }}</span>
-                                        <span class="text-muted me-3">{{ balanceUnit }}</span>
-                                        <button class="btn btn-sm btn-outline-primary" @click="fetchBalance" title="Refresh Balance" :disabled="!isWalletLoaded">
-                                            <i class="bi bi-arrow-clockwise"></i>
-                                        </button>
-                                    </div>
-                                    <small class="text-muted">(Balance is an estimate based on spendable UTXOs)</small>
-                               </div>
+                                    <small v-if="hasSavedPasskey && isPasskeyAvailable" class="text-muted d-block mt-2">A passkey wallet is saved on this device.</small>
+                                </section>
                            </div>
                       </div>
 
