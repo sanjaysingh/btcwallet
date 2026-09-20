@@ -97,8 +97,8 @@
                                   <div class="account-row-info">
                                       <div class="address-display">{{ shortWalletAddress }}</div>
                                   </div>
-                                  <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard(walletAddress, 'Address copied!')" title="Copy Address">
-                                      <i class="bi bi-wallet2"></i>
+                                  <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard(walletAddress, $event)" title="Copy Address">
+                                      <i class="bi bi-copy"></i>
                                   </button>
                               </div>
                           </div>
@@ -132,8 +132,8 @@
                                        <button class="btn btn-outline-secondary" type="button" @click="toggleCurrentPkVisibility" title="Show/Hide Key">
                                            <i :class="['bi', isPkVisible ? 'bi-eye-slash-fill' : 'bi-eye-fill']"></i>
                                        </button>
-                                       <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard(currentWif, 'Private key copied!')" title="Copy Private Key">
-                                           <i class="bi bi-key"></i>
+                                       <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard(currentWif, $event)" title="Copy Private Key">
+                                           <i class="bi bi-copy"></i>
                                       </button>
                                    </div>
                                    <small class="text-danger">Never share your private key!</small>
@@ -211,9 +211,9 @@
                              <div class="mb-3">
                                  <label class="form-label">From Address:</label>
                                  <div class="input-group">
-                                     <span class="form-control address-display">{{ walletAddress }}</span>
-                                     <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard(walletAddress, 'Sender address copied!')" title="Copy Sender Address">
-                                        <i class="bi bi-clipboard"></i>
+                                     <span class="form-control address-display">{{ sendFromAddressLabel }}</span>
+                                     <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard(walletAddress, $event)" title="Copy Sender Address">
+                                        <i class="bi bi-copy"></i>
                                     </button>
                                  </div>
                              </div>
@@ -257,8 +257,8 @@
                             <p>Share this address or QR code to receive funds:</p>
                             <div class="input-group mb-3 w-auto mx-auto" style="max-width: 500px;">
                                 <span class="form-control form-control-lg address-display">{{ walletAddress }}</span>
-                                 <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard(walletAddress, 'Receive address copied!')" title="Copy Address">
-                                     <i class="bi bi-clipboard"></i>
+                                 <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard(walletAddress, $event)" title="Copy Address">
+                                     <i class="bi bi-copy"></i>
                                  </button>
                             </div>
                             <!-- QR Code Div - Added class for styling -->

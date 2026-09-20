@@ -124,6 +124,18 @@ createApp({
             }
             return `${address.slice(0, 10)}…${address.slice(-8)}`;
         },
+        sendFromAddressLabel() {
+            const address = this.shortWalletAddress;
+            const raw = this.walletBalance;
+            if (raw === 'Loading...') {
+                return `${address} (… ${this.balanceUnit})`;
+            }
+            const amount = Number(raw);
+            if (!Number.isFinite(amount)) {
+                return address;
+            }
+            return `${address} (${Number.parseFloat(amount.toFixed(8))} ${this.balanceUnit})`;
+        },
         isWalletLoaded() {
             return this.keyPair !== null;
         },
@@ -249,11 +261,33 @@ createApp({
         toggleSessionPanel() {
             this.sessionPanelOpen = !this.sessionPanelOpen;
         },
-        async copyToClipboard(text, successMessage) {
+        showCopySuccess(event) {
+            const button = event && event.target && event.target.closest('button');
+            if (!button) {
+                return;
+            }
+
+            const icon = button.querySelector('i');
+            if (!icon) {
+                return;
+            }
+
+            const originalClasses = icon.className;
+            const originalButtonClasses = button.className;
+
+            icon.className = 'bi bi-check-lg';
+            button.className = button.className.replace('btn-outline-secondary', 'btn-success');
+
+            setTimeout(() => {
+                icon.className = originalClasses;
+                button.className = originalButtonClasses;
+            }, 2000);
+        },
+        async copyToClipboard(text, event) {
              if (!text) return;
             try {
                 await navigator.clipboard.writeText(text);
-                this.showAlert(successMessage, "success");
+                this.showCopySuccess(event);
             } catch (err) {
                 console.error('Failed to copy:', err);
                 this.showAlert("Failed to copy to clipboard.", "warning");
