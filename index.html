@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bitcoin Wallet (Testing Only)</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="libs/bootstrap-5.3.8.min.css" data-lib="bootstrap-css">
+    <link rel="stylesheet" href="libs/bootstrap-icons-1.13.1.min.css" data-lib="bootstrap-icons-css">
     <!-- Local CSS/JS are cache-busted with ?v=<commit> during GitHub Pages deploy. -->
     <link rel="stylesheet" href="styles.css"> <!-- Link external CSS -->
 </head>
@@ -276,15 +276,12 @@
     </div> <!-- /app -->
 
     <!-- JS Includes -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script src="./libs/buffer-6.0.3.js"> </script>
-    <!-- Load the locally bundled bitcoinjs-lib -->
-    <script src="./libs/bitcoinjs-lib-5.2.0.js"></script>
-    <!-- Add QR Code Library -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <!-- Add Vue 3 CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.5.13/vue.global.prod.min.js" integrity="sha512-66fV4MXSQdGN0KQxZ0Bw627HalhTQYQbOoF24EtMXN2FaAoKMgAZ7nDi77d9xWwrRjEEUfE+7rxjTt+cA2IuJA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="libs/bootstrap-5.3.8.bundle.min.js" data-lib="bootstrap-js"></script>
+    <script src="libs/axios-1.20.0.min.js" data-lib="axios"></script>
+    <script src="libs/buffer-6.0.3.js" data-lib="buffer"></script>
+    <script src="libs/bitcoinjs-lib-5.2.1.js" data-lib="bitcoinjs-lib"></script>
+    <script src="libs/qrcode-1.5.4.min.js" data-lib="qrcode"></script>
+    <script src="libs/vue-3.5.43-vue.global.prod.min.js" data-lib="vue"></script>
     <!-- Passkey wallet helper (WebAuthn PRF) -->
     <script src="passkey.js"></script>
     <!-- Add our application script -->

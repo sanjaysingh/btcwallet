@@ -58,7 +58,8 @@ body {
         }
 
         .qr-code-container canvas,
-        .qr-code-container img {
+        .qr-code-container img,
+        .qr-code-container svg {
             max-width: 100%;
             height: auto;
         }

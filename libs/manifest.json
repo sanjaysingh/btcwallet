@@ -1,0 +1,128 @@
+{
+  "description": "Pinned browser libraries vendored into this repo. Edit a version, then run `npm run vendor`.",
+  "libraries": [
+    {
+      "id": "vue",
+      "npm": "vue",
+      "version": "3.5.43",
+      "license": "MIT",
+      "homepage": "https://vuejs.org/",
+      "files": [
+        {
+          "id": "vue",
+          "from": "dist/vue.global.prod.js",
+          "dest": "vue-{{version}}-vue.global.prod.min.js",
+          "sha256": "b72394052eef1eeda1752db3758ce1be6f88016903f22e5241cc732ea307478e"
+        }
+      ]
+    },
+    {
+      "id": "axios",
+      "npm": "axios",
+      "version": "1.20.0",
+      "license": "MIT",
+      "homepage": "https://axios-http.com/",
+      "files": [
+        {
+          "id": "axios",
+          "from": "dist/axios.min.js",
+          "dest": "axios-{{version}}.min.js",
+          "sha256": "7c433c881c3b0903317193a0dd5af714ce0f65cf77d5c7f067f18b96f0e8e2c7"
+        }
+      ]
+    },
+    {
+      "id": "bootstrap",
+      "npm": "bootstrap",
+      "version": "5.3.8",
+      "license": "MIT",
+      "homepage": "https://getbootstrap.com/",
+      "files": [
+        {
+          "id": "bootstrap-css",
+          "from": "dist/css/bootstrap.min.css",
+          "dest": "bootstrap-{{version}}.min.css",
+          "sha256": "d85327d99c7a3ee1f9b5d0500d1370acea3ad2db39c163c2f51f232baedbdede"
+        },
+        {
+          "id": "bootstrap-js",
+          "from": "dist/js/bootstrap.bundle.min.js",
+          "dest": "bootstrap-{{version}}.bundle.min.js",
+          "sha256": "e4fd49181388c48ec5040bd3fe66f57c29c8e67fcd8502b3354b96ec7ab47cc7"
+        }
+      ]
+    },
+    {
+      "id": "bootstrap-icons",
+      "npm": "bootstrap-icons",
+      "version": "1.13.1",
+      "license": "MIT",
+      "homepage": "https://icons.getbootstrap.com/",
+      "files": [
+        {
+          "id": "bootstrap-icons-css",
+          "from": "font/bootstrap-icons.min.css",
+          "dest": "bootstrap-icons-{{version}}.min.css",
+          "sha256": "a5d6387a32ca3baec4d02336b5b3edab50c9dd518355576a011ea3dd9c1d884e"
+        },
+        {
+          "from": "font/fonts/bootstrap-icons.woff2",
+          "dest": "fonts/bootstrap-icons.woff2",
+          "sha256": "6c75710364a1ca5604267716f6d28997b26319fdb078cf11e0b42ab66ff2ea61"
+        },
+        {
+          "from": "font/fonts/bootstrap-icons.woff",
+          "dest": "fonts/bootstrap-icons.woff",
+          "sha256": "f55513b7b591cb84a3b87ff0e34ea24d4831d6fedc22e54b911ca64b5b544a15"
+        }
+      ]
+    },
+    {
+      "id": "qrcode",
+      "npm": "qrcode",
+      "version": "1.5.4",
+      "license": "MIT",
+      "homepage": "https://github.com/soldair/node-qrcode",
+      "bundle": {
+        "id": "qrcode",
+        "entry": "lib/browser.js",
+        "globalName": "QRCode",
+        "dest": "qrcode-{{version}}.min.js",
+        "esbuild": "0.25.12",
+        "sha256": "d59af15f40bc321f78871fe9d892d1dbbf05e35e20ad22aa51203c68185b58b6"
+      }
+    },
+    {
+      "id": "buffer",
+      "npm": "buffer",
+      "version": "6.0.3",
+      "license": "MIT",
+      "homepage": "https://github.com/feross/buffer",
+      "bundle": {
+        "id": "buffer",
+        "bundler": "browserify",
+        "browserify": "17.0.1",
+        "exportName": "Buffer",
+        "globalName": "Buffer",
+        "dest": "buffer-{{version}}.js",
+        "sha256": "41eb7307831dbbbb2e1106811f16dd1a0b220fd75b06d14a36ec8f1990dd6c4f"
+      }
+    },
+    {
+      "id": "bitcoinjs-lib",
+      "npm": "bitcoinjs-lib",
+      "version": "5.2.1",
+      "license": "MIT",
+      "homepage": "https://github.com/bitcoinjs/bitcoinjs-lib",
+      "bundle": {
+        "id": "bitcoinjs-lib",
+        "bundler": "browserify",
+        "browserify": "17.0.1",
+        "require": "bitcoinjs-lib",
+        "globalName": "bitcoin",
+        "dest": "bitcoinjs-lib-{{version}}.js",
+        "sha256": "fe2c65122fcb29aff5f5b7f20d3989a42b8220c84adecf374fbb2adfd6c4b320"
+      }
+    }
+  ]
+}

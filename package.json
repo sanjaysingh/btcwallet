@@ -1,18 +1,15 @@
 {
   "name": "btcwallet",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "build:buffer": "browserify ./libs/buffer-shim.js -s Buffer -o libs/buffer-6.0.3.js",
-    "build:bitcoin": "browserify -r bitcoinjs-lib -s bitcoin -o libs/bitcoinjs-lib-5.2.0.js"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "vendor": "node scripts/vendor-libs.mjs",
+    "vendor:check": "node scripts/vendor-libs.mjs --check"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
-    "bitcoinjs-lib": "5.2.0",
-    "browserify": "17.0.1",
-     "buffer": "6.0.3"
+    "jsdom": "26.1.0",
+    "vitest": "3.2.7"
   }
 }
