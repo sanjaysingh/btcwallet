@@ -1,18 +1,40 @@
 const { createApp } = Vue;
 
+// Identify the chain from the Esplora genesis hash. Testnet4 and testnet3 share
+// address encoding (tb1..., same WIF version), so bitcoinjs-lib's `networks.testnet`
+// is used for both. Block height cannot distinguish them from mainnet: testnet4
+// is currently well below mainnet height, while testnet3 is far above it.
+const NETWORK_BY_GENESIS = {
+    '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f': 'mainnet',
+    '000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943': 'testnet3',
+    '00000000da84f2bafbbc53dee25a72ae507ff4914b867c565be350b0da8bf043': 'testnet4',
+};
+
+const NETWORK_DISPLAY_NAMES = {
+    mainnet: 'Mainnet',
+    testnet3: 'Testnet3',
+    testnet4: 'Testnet4',
+};
+
+const NETWORK_EXPLORERS = {
+    mainnet: 'https://mempool.space/',
+    testnet3: 'https://mempool.space/testnet/',
+    testnet4: 'https://mempool.space/testnet4/',
+};
+
 createApp({
     data() {
         return {
             // Configuration (non-reactive might be fine, but keeping for simplicity)
             DEFAULT_MAINNET_RPC_ENDPOINT: 'https://blockstream.info/api/',
-            DEFAULT_TESTNET_RPC_ENDPOINT: 'https://blockstream.info/testnet/api/',
+            DEFAULT_TESTNET_RPC_ENDPOINT: 'https://mempool.space/testnet4/api/',
             MIN_CONFIRMATIONS: 1,
 
             // RPC Options for dropdown
             rpcOptions: [
                 {
                     value: 'DEFAULT_TESTNET',
-                    text: 'https://blockstream.info/testnet/api/' // Use the URL directly
+                    text: 'https://mempool.space/testnet4/api/' // Use the URL directly
                 },
                 {
                     value: 'DEFAULT_MAINNET',
@@ -29,7 +51,7 @@ createApp({
             keyPair: null, // bitcoinjs-lib keyPair object
             currentRpcEndpoint: '',
             qrCodeInstance: null,
-            isTestnet: true,
+            networkId: 'testnet4',
             currentWif: '',
             walletSource: 'none', // 'none' | 'wif' | 'passkey'
             isPkVisible: false,
@@ -85,11 +107,14 @@ createApp({
         isPasskeyWallet() {
             return this.walletSource === 'passkey';
         },
+        isTestnet() {
+            return this.networkId !== 'mainnet';
+        },
         networkName() {
-            return this.isTestnet ? 'Testnet' : 'Mainnet';
+            return NETWORK_DISPLAY_NAMES[this.networkId] || (this.isTestnet ? 'Testnet' : 'Mainnet');
         },
         blockExplorerUrlBase() {
-            return this.isTestnet ? 'https://mempool.space/testnet/' : 'https://mempool.space/';
+            return NETWORK_EXPLORERS[this.networkId] || (this.isTestnet ? NETWORK_EXPLORERS.testnet4 : NETWORK_EXPLORERS.mainnet);
         },
         // Computed property to disable RPC update if selection hasn't changed
         isRpcUpdateDisabled() {
@@ -563,15 +588,16 @@ createApp({
             this.showLoading(true);
 
             try {
-                const blockHeightUrl = `${targetRpc}blocks/tip/height`;
-                const response = await axios.get(blockHeightUrl, { timeout: 10000 });
-                const blockHeight = parseInt(response.data, 10);
+                const genesisUrl = `${targetRpc}block-height/0`;
+                const genesisResponse = await axios.get(genesisUrl, { timeout: 10000 });
+                const genesisHash = String(genesisResponse.data).trim().toLowerCase();
+                const detectedNetworkId = NETWORK_BY_GENESIS[genesisHash];
 
-                if (isNaN(blockHeight)) {
-                    throw new Error('Invalid block height received.');
+                if (!detectedNetworkId) {
+                    throw new Error(`Unknown genesis block ${genesisHash}. Expected mainnet, testnet3, or testnet4.`);
                 }
 
-                const detectedNetworkIsTestnet = blockHeight > 1_500_000; 
+                const detectedNetworkIsTestnet = detectedNetworkId !== 'mainnet';
                 const previousNetworkIsTestnet = this.isTestnet;
 
                 // If network changed and wallet exists, clear session WITHOUT confirmation
@@ -580,8 +606,8 @@ createApp({
                 }
 
                 // Update state regardless of whether session was cleared
-                this.isTestnet = detectedNetworkIsTestnet;
-                this.network = this.isTestnet ? bitcoin.networks.testnet : bitcoin.networks.bitcoin;
+                this.networkId = detectedNetworkId;
+                this.network = detectedNetworkIsTestnet ? bitcoin.networks.testnet : bitcoin.networks.bitcoin;
                 this.currentRpcEndpoint = targetRpc;
 
                 this.showAlert(`RPC Endpoint updated. Detected Network: ${this.networkName}`, "success");
@@ -612,8 +638,8 @@ createApp({
             return;
         }
 
-        // Initialize state
-        this.isTestnet = true; 
+        // Initialize state on testnet4 (replaces the old testnet3 default)
+        this.networkId = 'testnet4';
         this.network = bitcoin.networks.testnet;
         this.currentRpcEndpoint = this.DEFAULT_TESTNET_RPC_ENDPOINT;
         this.rpcEndpointSelectValue = 'DEFAULT_TESTNET'; 
