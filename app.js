@@ -282,40 +282,120 @@ createApp({
         toggleSessionPanel() {
             this.sessionPanelOpen = !this.sessionPanelOpen;
         },
-        showCopySuccess(event) {
-            // Prefer currentTarget: iOS often sets target to the icon or a text node,
-            // and Text.closest is undefined (which would look like a failed copy).
-            const button = event?.currentTarget?.closest?.('button')
-                || event?.target?.closest?.('button');
-            if (!button) {
+        copyButtonFromEvent(event) {
+            if (!event) {
+                return null;
+            }
+            // Must run during the click, before any await: iOS clears currentTarget
+            // after clipboard.writeText resolves, and target may be a text node.
+            if (event.currentTarget && typeof event.currentTarget.closest === 'function') {
+                return event.currentTarget.closest('button') || event.currentTarget;
+            }
+            if (event.target && typeof event.target.closest === 'function') {
+                return event.target.closest('button');
+            }
+            if (event.target && event.target.parentElement) {
+                return event.target.parentElement.closest('button');
+            }
+            return null;
+        },
+        isAppleTouchDevice() {
+            const ua = navigator.userAgent || '';
+            return /iPad|iPhone|iPod/i.test(ua)
+                || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        },
+        copyTextWithExecCommand(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.setAttribute('aria-hidden', 'true');
+            textarea.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:0;opacity:0.01;font-size:16px;';
+            document.body.appendChild(textarea);
+
+            const selection = window.getSelection();
+            const previousRange = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+            let copied = false;
+            const onCopy = (event) => {
+                if (!event.clipboardData) {
+                    return;
+                }
+                event.clipboardData.setData('text/plain', text);
+                event.preventDefault();
+                copied = true;
+            };
+            document.addEventListener('copy', onCopy);
+            try {
+                textarea.focus();
+                textarea.select();
+                textarea.setSelectionRange(0, text.length);
+                copied = document.execCommand('copy') || copied;
+            } catch (error) {
+                copied = copied || false;
+            } finally {
+                document.removeEventListener('copy', onCopy);
+                document.body.removeChild(textarea);
+                if (selection) {
+                    selection.removeAllRanges();
+                    if (previousRange) {
+                        selection.addRange(previousRange);
+                    }
+                }
+            }
+            return copied;
+        },
+        showCopySuccess(button) {
+            if (!button || !button.classList) {
                 return;
             }
 
             const icon = button.querySelector('i');
-            if (!icon) {
-                return;
-            }
-
-            const originalClasses = icon.className;
+            const originalIconClasses = icon ? icon.className : '';
             const originalButtonClasses = button.className;
 
-            icon.className = 'bi bi-check-lg';
-            button.className = button.className.replace('btn-outline-secondary', 'btn-success');
+            if (icon) {
+                icon.className = 'bi bi-check-lg';
+            }
+            button.classList.remove('btn-outline-secondary');
+            button.classList.add('btn-success');
 
             setTimeout(() => {
-                icon.className = originalClasses;
+                if (icon) {
+                    icon.className = originalIconClasses;
+                }
                 button.className = originalButtonClasses;
             }, 2000);
         },
-        async copyToClipboard(text, event) {
+        copyToClipboard(text, event) {
             if (!text) return;
-            try {
-                await navigator.clipboard.writeText(text);
-                this.showCopySuccess(event);
-            } catch (err) {
+            const button = this.copyButtonFromEvent(event);
+            const succeed = () => this.showCopySuccess(button);
+            const fail = (err) => {
                 console.error('Failed to copy:', err);
                 this.showAlert('Failed to copy to clipboard.', 'warning');
+            };
+
+            // iOS Safari rejects Clipboard API writes unless they stay inside the
+            // tap gesture, so copy there must not wait for a promise.
+            if (this.isAppleTouchDevice() || !navigator.clipboard || !window.isSecureContext) {
+                if (this.copyTextWithExecCommand(text)) {
+                    succeed();
+                    return;
+                }
+                if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                    navigator.clipboard.writeText(text).then(succeed).catch(fail);
+                    return;
+                }
+                fail(new Error('Copy is not available in this browser.'));
+                return;
             }
+
+            navigator.clipboard.writeText(text).then(succeed).catch((err) => {
+                if (this.copyTextWithExecCommand(text)) {
+                    succeed();
+                    return;
+                }
+                fail(err);
+            });
         },
         toggleCurrentPkVisibility() {
             this.isPkVisible = !this.isPkVisible;
