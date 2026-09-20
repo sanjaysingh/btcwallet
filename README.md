@@ -32,31 +32,31 @@ The derived key stays in the current browser session only. Use **Import passkey*
 
 ## 📁 Project Structure
 
+Browser libraries are vendored in `libs/` and pinned in `libs/manifest.json`. The deployed app loads those files locally (no npm/CDN for Vue, Axios, Bootstrap, QRCode, Buffer, or bitcoinjs-lib). To bump a library, change its `version` in the manifest and run `npm run vendor`. Full inventory, exceptions, and the upgrade plan: [`libs/README.md`](libs/README.md).
+
+<!-- vendor-libs:begin -->
 ```
-btcwallet/
-├── index.html          # Main wallet interface
-├── app.js             # Wallet functionality
-├── passkey.js         # Passkey (WebAuthn PRF) wallet helper
-├── styles.css         # Custom styling
-├── libs/              # Library files
-│   ├── buffer-6.0.3.js
-│   ├── bitcoinjs-lib-5.2.0.js
-│   ├── buffer-shim.js
-│   └── buffer.bundle.js
-└── package.json       # Build scripts & dependencies
+libs/
+├── axios-1.20.0.min.js
+├── bitcoinjs-lib-5.2.1.js
+├── bootstrap-5.3.8.bundle.min.js
+├── bootstrap-5.3.8.min.css
+├── bootstrap-icons-1.13.1.min.css
+├── buffer-6.0.3.js
+├── fonts/bootstrap-icons.woff
+├── fonts/bootstrap-icons.woff2
+├── qrcode-1.5.4.min.js
+└── vue-3.5.43-vue.global.prod.min.js
 ```
+<!-- vendor-libs:end -->
 
 ## 🛠️ Development Setup
 
-If you want to rebuild the Bitcoin.js bundles:
-
 ```bash
 npm install
-npm run build:buffer    # Builds buffer library to libs/
-npm run build:bitcoin   # Builds bitcoinjs library to libs/
+npm test
+npm run vendor          # refresh libs/ from the pins in libs/manifest.json
 ```
-
-The build scripts will generate the library files in the `libs/` folder, keeping everything organized.
 
 ## ⚠️ Important Notes
 
@@ -65,14 +65,17 @@ The build scripts will generate the library files in the `libs/` folder, keeping
 - The default Esplora RPC is [mempool.space testnet4](https://mempool.space/testnet4/api/). Signet is available as a preset ([mempool.space signet](https://mempool.space/signet/api/)). Testnet3 is still recognized if you enter a custom Esplora URL for that chain.
 - Never share your private keys
 - This runs entirely in your browser (no server needed)
-- All library dependencies are kept in the `libs/` folder for better organization
+- No CDN UI libraries — Vue, Axios, Bootstrap, icons, QRCode, Buffer, and bitcoinjs-lib are stored in `libs/`
 
 ## 🔧 Built With
 
-- Bitcoin.js for wallet functionality
+- Bitcoin.js <!-- vendor-version:bitcoinjs-lib -->5.2.1<!-- /vendor-version:bitcoinjs-lib --> for wallet functionality
 - WebAuthn PRF for passkey wallets
-- Bootstrap for the UI
-- Vue.js for reactivity
+- Bootstrap <!-- vendor-version:bootstrap -->5.3.8<!-- /vendor-version:bootstrap --> for the UI
+- Vue.js <!-- vendor-version:vue -->3.5.43<!-- /vendor-version:vue --> for reactivity
+- Axios <!-- vendor-version:axios -->1.20.0<!-- /vendor-version:axios --> for Esplora RPC
+- QR Codes: qrcode <!-- vendor-version:qrcode -->1.5.4<!-- /vendor-version:qrcode --> (soldair/node-qrcode)
+- Icons: Bootstrap Icons <!-- vendor-version:bootstrap-icons -->1.13.1<!-- /vendor-version:bootstrap-icons -->
 - Pure client-side JavaScript (no backend required)
 
 ---

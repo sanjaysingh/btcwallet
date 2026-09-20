@@ -280,19 +280,27 @@ createApp({
                  qrCodeElement.innerHTML = ''; // Clear previous QR code
                 if (this.walletAddress && this.walletAddress !== 'Not loaded') {
                     try {
-                        // Ensure QRCode library is available globally when called
-                         if (typeof QRCode === 'undefined') {
+                        if (typeof QRCode === 'undefined' || typeof QRCode.toString !== 'function') {
                             console.error("QRCode library not loaded when trying to generate.");
-                             qrCodeElement.textContent = 'Error: QR Code library not loaded.';
+                            qrCodeElement.textContent = 'Error: QR Code library not loaded.';
                             return;
                         }
-                        this.qrCodeInstance = new QRCode(qrCodeElement, {
-                            text: 'bitcoin:' + this.walletAddress,
+                        QRCode.toString('bitcoin:' + this.walletAddress, {
+                            type: 'svg',
                             width: 256,
-                            height: 256,
-                            colorDark: "#000000",
-                            colorLight: "#ffffff",
-                            correctLevel: QRCode.CorrectLevel.H
+                            margin: 1,
+                            errorCorrectionLevel: 'H',
+                            color: {
+                                dark: '#000000',
+                                light: '#ffffff'
+                            }
+                        }, (err, svg) => {
+                            if (err) {
+                                console.error("Error generating QR code:", err);
+                                qrCodeElement.textContent = 'Error generating QR code.';
+                                return;
+                            }
+                            qrCodeElement.innerHTML = svg;
                         });
                     } catch (e) {
                         console.error("Error generating QR code:", e);
