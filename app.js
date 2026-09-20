@@ -283,7 +283,10 @@ createApp({
             this.sessionPanelOpen = !this.sessionPanelOpen;
         },
         showCopySuccess(event) {
-            const button = event && event.target && event.target.closest('button');
+            // Prefer currentTarget: iOS often sets target to the icon or a text node,
+            // and Text.closest is undefined (which would look like a failed copy).
+            const button = event?.currentTarget?.closest?.('button')
+                || event?.target?.closest?.('button');
             if (!button) {
                 return;
             }
@@ -305,13 +308,13 @@ createApp({
             }, 2000);
         },
         async copyToClipboard(text, event) {
-             if (!text) return;
+            if (!text) return;
             try {
                 await navigator.clipboard.writeText(text);
                 this.showCopySuccess(event);
             } catch (err) {
                 console.error('Failed to copy:', err);
-                this.showAlert("Failed to copy to clipboard.", "warning");
+                this.showAlert('Failed to copy to clipboard.', 'warning');
             }
         },
         toggleCurrentPkVisibility() {
