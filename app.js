@@ -703,6 +703,7 @@ createApp({
                 this.lastBalanceRefreshEndpoint = '';
                 this.balanceRequestId += 1;
                 this.isRefreshingBalances = true;
+                await this.$nextTick();
             }
 
              this.networkStatusText = 'Selected Network: Detecting...';
