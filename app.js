@@ -99,7 +99,7 @@ createApp({
             showLoadedWalletDetails: false,
             sessionPanelOpen: false,
             showCustomRpcInput: false,
-            currentTheme: 'light', // Added for theme toggling
+            currentTheme: 'dark', // Default theme; toggle switches to light
 
             // Network Status Display (Refactored)
             networkStatusText: '',
@@ -929,8 +929,7 @@ createApp({
         } else {
             this.passkeySupportMessage = 'Passkey support failed to load.';
         }
-        // Initialize theme based on data
-        this.currentTheme = 'light'; // Or detect preference
+        // Initialize theme based on data (dark by default)
         document.documentElement.setAttribute('data-bs-theme', this.currentTheme);
 
         // Set initial UI state (replaces updateUI call)
