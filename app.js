@@ -75,6 +75,7 @@ createApp({
             balanceUnit: 'BTC',
             isLoading: false,
             isRefreshingBalances: false,
+            rpcSwitchId: 0,
             alerts: [], // Array to hold alert messages { message, type, id }
 
             // Input Models
@@ -687,7 +688,21 @@ createApp({
                  return;
             }
             if (targetRpc === this.currentRpcEndpoint) {
+                if (this.isWalletLoaded && !this.isBalanceFreshForCurrentRpc()) {
+                    this.walletBalance = 'Loading...';
+                    await this.refreshBalances({ force: true });
+                }
                 return;
+            }
+
+            const previousBalance = this.walletBalance;
+            const previousEndpoint = this.currentRpcEndpoint;
+            const switchId = ++this.rpcSwitchId;
+            if (this.isWalletLoaded) {
+                this.walletBalance = 'Loading...';
+                this.lastBalanceRefreshEndpoint = '';
+                this.balanceRequestId += 1;
+                this.isRefreshingBalances = true;
             }
 
              this.networkStatusText = 'Selected Network: Detecting...';
@@ -696,7 +711,7 @@ createApp({
             try {
                 const genesisUrl = `${targetRpc}block-height/0`;
                 const genesisResponse = await axios.get(genesisUrl, { timeout: 10000 });
-                if (this.resolveSelectedRpc() !== targetRpc) {
+                if (switchId !== this.rpcSwitchId || this.resolveSelectedRpc() !== targetRpc) {
                     return;
                 }
                 const genesisHash = String(genesisResponse.data).trim().toLowerCase();
@@ -722,19 +737,26 @@ createApp({
                  this.networkStatusText = `Selected Network: ${this.networkName}`;
                  this.networkStatusClass = `network-status ${this.isTestnet ? 'text-info' : 'text-primary'}`; 
 
-                // Always replace a previous-network balance when the wallet stays loaded
                 if (this.isWalletLoaded) {
                     await this.refreshBalanceAfterNetworkSwitch();
                 }
                 
             } catch (error) {
-                if (this.resolveSelectedRpc() !== targetRpc) {
+                if (switchId !== this.rpcSwitchId || this.resolveSelectedRpc() !== targetRpc) {
                     return;
                 }
                 console.error("Error detecting network or updating RPC:", error);
                 this.showAlert(`Failed to connect or detect network for ${targetRpc}. Please check the URL and try again. Error: ${error.message}`, "danger");
                  this.networkStatusText = `Selected Network: Detection Failed`;
                  this.networkStatusClass = 'network-status text-danger';
+                if (this.isWalletLoaded && this.currentRpcEndpoint === previousEndpoint) {
+                    this.walletBalance = previousBalance;
+                    this.lastBalanceRefreshEndpoint = previousEndpoint;
+                }
+            } finally {
+                if (switchId === this.rpcSwitchId && this.balanceRefreshCount === 0) {
+                    this.isRefreshingBalances = false;
+                }
             }
         },
     },
