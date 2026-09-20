@@ -113,10 +113,6 @@ body {
     min-width: 0;
 }
 
-.network-update-btn {
-    flex: 0 0 auto;
-}
-
 .network-status {
     font-size: 0.8125rem;
 }
@@ -318,10 +314,6 @@ body {
     }
 
     .network-toolbar-row .form-label {
-        width: 100%;
-    }
-
-    .network-update-btn {
         width: 100%;
     }
 

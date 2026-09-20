@@ -79,6 +79,7 @@ createApp({
             pkInputType: 'password', // Added for import field visibility
             rpcEndpointSelectValue: 'DEFAULT_TESTNET',
             rpcEndpointCustomInput: '',
+            customRpcUpdateTimer: null,
             recipientAddressInput: '',
             sendAmountInput: '',
             feeRateInput: 10, 
@@ -133,11 +134,6 @@ createApp({
         },
         blockExplorerUrlBase() {
             return NETWORK_EXPLORERS[this.networkId] || (this.isTestnet ? NETWORK_EXPLORERS.testnet4 : NETWORK_EXPLORERS.mainnet);
-        },
-        // Computed property to disable RPC update if selection hasn't changed
-        isRpcUpdateDisabled() {
-            const selectedRpc = this.resolveSelectedRpc();
-            return !selectedRpc || selectedRpc === this.currentRpcEndpoint;
         },
         // Optional: Computed property for theme icon class
         themeIconClass() {
@@ -208,9 +204,42 @@ createApp({
         },
         onRpcEndpointChange() {
             this.updateRpcSelection();
-            if (this.rpcEndpointSelectValue !== 'CUSTOM') {
-                this.updateRpcAndNetwork();
+            if (this.rpcEndpointSelectValue === 'CUSTOM') {
+                if (!this.rpcEndpointCustomInput) {
+                    this.rpcEndpointCustomInput = this.currentRpcEndpoint;
+                }
+                return;
             }
+            this.updateRpcAndNetwork();
+        },
+        scheduleCustomRpcUpdate() {
+            if (this.rpcEndpointSelectValue !== 'CUSTOM') {
+                return;
+            }
+            clearTimeout(this.customRpcUpdateTimer);
+            this.customRpcUpdateTimer = setTimeout(() => {
+                this.applyCustomRpcIfReady();
+            }, 700);
+        },
+        flushCustomRpcUpdate() {
+            if (this.rpcEndpointSelectValue !== 'CUSTOM') {
+                return;
+            }
+            clearTimeout(this.customRpcUpdateTimer);
+            this.applyCustomRpcIfReady({ fromBlur: true });
+        },
+        applyCustomRpcIfReady({ fromBlur = false } = {}) {
+            const url = this.rpcEndpointCustomInput.trim();
+            if (!url) {
+                return;
+            }
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                if (fromBlur) {
+                    this.showAlert('Invalid RPC URL. Must start with http:// or https://', 'warning');
+                }
+                return;
+            }
+            this.updateRpcAndNetwork();
         },
         toggleSessionPanel() {
             this.sessionPanelOpen = !this.sessionPanelOpen;
@@ -606,6 +635,9 @@ createApp({
             const targetRpc = this.resolveSelectedRpc();
 
             if (!targetRpc) {
+                 if (this.rpcEndpointSelectValue === 'CUSTOM') {
+                     return;
+                 }
                  this.showAlert("RPC Endpoint URL cannot be empty.", "warning");
                  return;
             }
@@ -613,14 +645,19 @@ createApp({
                  this.showAlert("Invalid RPC URL. Must start with http:// or https://", "warning");
                  return;
             }
+            if (targetRpc === this.currentRpcEndpoint) {
+                return;
+            }
 
              this.networkStatusText = 'Selected Network: Detecting...';
              this.networkStatusClass = 'network-status text-muted';
-            this.showLoading(true);
 
             try {
                 const genesisUrl = `${targetRpc}block-height/0`;
                 const genesisResponse = await axios.get(genesisUrl, { timeout: 10000 });
+                if (this.resolveSelectedRpc() !== targetRpc) {
+                    return;
+                }
                 const genesisHash = String(genesisResponse.data).trim().toLowerCase();
                 const detectedNetworkId = NETWORK_BY_GENESIS[genesisHash];
 
@@ -641,22 +678,22 @@ createApp({
                 this.network = detectedNetworkIsTestnet ? bitcoin.networks.testnet : bitcoin.networks.bitcoin;
                 this.currentRpcEndpoint = targetRpc;
 
-                this.showAlert(`RPC Endpoint updated. Detected Network: ${this.networkName}`, "success");
-                 this.networkStatusText = `Selected Network: ${this.networkName} (Detected)`;
+                 this.networkStatusText = `Selected Network: ${this.networkName}`;
                  this.networkStatusClass = `network-status ${this.isTestnet ? 'text-info' : 'text-primary'}`; 
 
                 // Refresh balance if wallet is STILL loaded (i.e., wasn't cleared)
                 if (this.isWalletLoaded) { 
-                     this.fetchBalance();
+                     this.fetchBalance({ silent: true });
                 }
                 
             } catch (error) {
+                if (this.resolveSelectedRpc() !== targetRpc) {
+                    return;
+                }
                 console.error("Error detecting network or updating RPC:", error);
                 this.showAlert(`Failed to connect or detect network for ${targetRpc}. Please check the URL and try again. Error: ${error.message}`, "danger");
                  this.networkStatusText = `Selected Network: Detection Failed`;
                  this.networkStatusClass = 'network-status text-danger';
-            } finally {
-                 this.showLoading(false);
             }
         },
     },

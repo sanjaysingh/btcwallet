@@ -14,7 +14,7 @@ A simple Bitcoin wallet web app for testing and experimentation. Perfect for dev
 
 1. **Open the wallet**: Just open `index.html` in your browser (use HTTPS or localhost for passkeys)
 2. **Create a wallet**: On the Wallet tab, choose **Private key** or **Passkey**, or import an existing WIF key
-3. **Switch networks**: Choose testnet4 for safe testing (recommended!), or Signet for a more stable public test chain
+3. **Switch networks**: Choose testnet4, Signet, or mainnet from the Network row — the RPC updates immediately. Other… reveals a custom Esplora URL that applies as you type.
 4. **Start transacting**: Send and receive Bitcoin
 
 ### Passkey wallets

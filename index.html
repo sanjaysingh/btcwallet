@@ -67,12 +67,11 @@
                                         {{ option.text }}
                                     </option>
                                 </select>
-                                <button class="btn btn-primary btn-sm network-update-btn" type="button" @click="updateRpcAndNetwork" :disabled="isRpcUpdateDisabled">Update</button>
                             </div>
                             <small :class="networkStatusClass">{{ networkStatusText }}</small>
-                            <div class="mt-2" v-show="showCustomRpcInput">
+                            <div class="mt-2" v-if="showCustomRpcInput">
                                 <label for="rpc-custom-input" class="form-label">RPC Endpoint URL</label>
-                                <input type="text" class="form-control" id="rpc-custom-input" v-model="rpcEndpointCustomInput" placeholder="Enter custom Esplora API URL" ref="rpcCustomInput" @keyup.enter="updateRpcAndNetwork">
+                                <input type="text" class="form-control" id="rpc-custom-input" v-model="rpcEndpointCustomInput" placeholder="Enter custom Esplora API URL" ref="rpcCustomInput" @input="scheduleCustomRpcUpdate" @blur="flushCustomRpcUpdate">
                             </div>
                        </div>
 
