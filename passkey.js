@@ -51,7 +51,21 @@
     }
 
     function isUserCancellation(error) {
-        return error && (error.name === 'NotAllowedError' || error.name === 'AbortError');
+        if (!error) {
+            return false;
+        }
+        if (error.name === 'NotAllowedError' || error.name === 'AbortError') {
+            return true;
+        }
+        // navigator.credentials.create/get can resolve to null on dismiss, which we
+        // rethrow as a plain Error whose message includes "cancelled".
+        return /cancelled/i.test(error.message || '');
+    }
+
+    function passkeyCancellationError(message) {
+        const err = new Error(message);
+        err.name = 'NotAllowedError';
+        return err;
     }
 
     async function getPrfSalt() {
@@ -212,6 +226,9 @@
         }
 
         const assertion = await navigator.credentials.get({ publicKey });
+        if (!assertion) {
+            throw passkeyCancellationError('Passkey request was cancelled.');
+        }
         const prfOutput = readPrfResult(assertion);
         if (!prfOutput) {
             throw new Error('This passkey does not support wallet derivation (PRF/hmac-secret). Try a platform passkey in a supported browser.');
@@ -259,7 +276,7 @@
         });
 
         if (!credential) {
-            throw new Error('Passkey creation returned no credential.');
+            throw passkeyCancellationError('Passkey creation was cancelled.');
         }
 
         const credentialIdBytes = new Uint8Array(credential.rawId);

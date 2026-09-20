@@ -4,7 +4,7 @@ A simple Bitcoin wallet web app for testing and experimentation. Perfect for dev
 
 ## ✨ What it does
 
-- Create new Bitcoin wallets, import existing ones, or unlock with a passkey
+- Create new Bitcoin wallets, import a WIF key, or open a passkey wallet
 - Send and receive Bitcoin on testnet4, Signet, or mainnet
 - Connect to different RPC endpoints (including your own)
 - Clean, responsive web interface with dark/light theme
@@ -13,8 +13,8 @@ A simple Bitcoin wallet web app for testing and experimentation. Perfect for dev
 ## 🚀 Quick Start
 
 1. **Open the wallet**: Just open `index.html` in your browser (use HTTPS or localhost for passkeys)
-2. **Create a wallet**: Click "Create New Wallet", "Create Passkey Wallet", or import an existing private key
-3. **Switch networks**: Choose testnet4 for safe testing (recommended!), or Signet for a more stable public test chain
+2. **Create a wallet**: On the Wallet tab, choose **Private key** or **Passkey**, or import an existing WIF key
+3. **Switch networks**: Choose testnet4, Signet, or mainnet from the Network row — the RPC updates immediately. Other… reveals a custom Esplora URL that applies as you type.
 4. **Start transacting**: Send and receive Bitcoin
 
 ### Passkey wallets
@@ -28,7 +28,7 @@ Requirements:
 - A browser/authenticator that supports WebAuthn PRF (Safari 18+, Chrome/Android passkeys, or a compatible security key)
 - Windows Hello currently does **not** support PRF
 
-The derived key stays in the current browser session only. The passkey credential ID may be saved locally so Unlock can skip the account picker; use "Forget saved passkey on this device" to remove that hint. Clearing the session does not delete the passkey from your authenticator.
+The derived key stays in the current browser session only. Use **Import passkey** to restore the same wallet later. Clearing the session does not delete the passkey from your authenticator.
 
 ## 📁 Project Structure
 
