@@ -70,6 +70,7 @@ createApp({
             walletAddress: 'Not loaded',
             walletBalance: 'N/A',
             balanceUnit: 'BTC',
+            balanceFetchId: 0,
             isLoading: false,
             alerts: [], // Array to hold alert messages { message, type, id }
 
@@ -125,6 +126,12 @@ createApp({
         blockExplorerUrlBase() {
             return NETWORK_EXPLORERS[this.networkId] || (this.isTestnet ? NETWORK_EXPLORERS.testnet4 : NETWORK_EXPLORERS.mainnet);
         },
+        addressExplorerUrl() {
+            if (!this.isWalletLoaded || !this.walletAddress || this.walletAddress === 'Not loaded') {
+                return '#';
+            }
+            return `${this.blockExplorerUrlBase}address/${this.walletAddress}`;
+        },
         // Computed property to disable RPC update if selection hasn't changed
         isRpcUpdateDisabled() {
             const selectedRpc = this.resolveSelectedRpc();
@@ -140,7 +147,7 @@ createApp({
         showLoading(show = true) {
             this.isLoading = show;
         },
-        showAlert(message, type = 'info') {
+        showAlert(message, type = 'info', duration = 4000) {
             const id = Date.now(); // Simple unique ID for keying
             const newAlert = { message, type, id }; // Re-added id
             
@@ -151,7 +158,7 @@ createApp({
 
             setTimeout(() => {
                 this.dismissAlert();
-            }, 4000);
+            }, duration);
         },
         dismissAlert() {
              this.alerts = [];
@@ -196,6 +203,13 @@ createApp({
             } else {
                 this.showCustomRpcInput = false;
             }
+        },
+        async onRpcEndpointChange() {
+            this.updateRpcSelection();
+            if (this.rpcEndpointSelectValue === 'CUSTOM' || this.isRpcUpdateDisabled) {
+                return;
+            }
+            await this.updateRpcAndNetwork();
         },
         async copyToClipboard(text, successMessage) {
              if (!text) return;
@@ -389,11 +403,11 @@ createApp({
         },
 
         // --- Bitcoin Network Interaction ---
-        async getUtxos() {
+        async getUtxos(rpcEndpoint = this.currentRpcEndpoint) {
              if (!this.walletAddress || this.walletAddress === 'Not loaded') return [];
             this.showLoading(true);
             try {
-                const url = `${this.currentRpcEndpoint}address/${this.walletAddress}/utxo`;
+                const url = `${rpcEndpoint}address/${this.walletAddress}/utxo`;
                 const response = await axios.get(url, { timeout: 10000 });
                 return response.data;
             } catch (error) {
@@ -406,8 +420,14 @@ createApp({
         },
         async fetchBalance() {
              if (!this.isWalletLoaded) return;
+            const fetchId = ++this.balanceFetchId;
+            const rpcEndpoint = this.currentRpcEndpoint;
+            const networkId = this.networkId;
             this.walletBalance = 'Loading...';
-            const utxos = await this.getUtxos();
+            const utxos = await this.getUtxos(rpcEndpoint);
+            if (fetchId !== this.balanceFetchId || this.networkId !== networkId) {
+                return;
+            }
             if (utxos) {
                 const confirmedBalance = utxos
                     .filter(utxo => utxo.status.confirmed)
@@ -600,10 +620,23 @@ createApp({
 
                 const detectedNetworkIsTestnet = detectedNetworkId !== 'mainnet';
                 const previousNetworkIsTestnet = this.isTestnet;
+                const previousNetworkId = this.networkId;
+                const switchedTestChains = this.isWalletLoaded
+                    && detectedNetworkIsTestnet
+                    && previousNetworkIsTestnet
+                    && previousNetworkId !== detectedNetworkId;
 
                 // If network changed and wallet exists, clear session WITHOUT confirmation
                 if (this.isWalletLoaded && detectedNetworkIsTestnet !== previousNetworkIsTestnet) {
                      this.clearSession(); // Clears wallet state - This will trigger reactive UI updates
+                }
+
+                // Drop in-flight UTXO responses from the previous chain
+                if (previousNetworkId !== detectedNetworkId) {
+                    this.balanceFetchId += 1;
+                    if (this.isWalletLoaded) {
+                        this.walletBalance = 'Loading...';
+                    }
                 }
 
                 // Update state regardless of whether session was cleared
@@ -611,7 +644,16 @@ createApp({
                 this.network = detectedNetworkIsTestnet ? bitcoin.networks.testnet : bitcoin.networks.bitcoin;
                 this.currentRpcEndpoint = targetRpc;
 
-                this.showAlert(`RPC Endpoint updated. Detected Network: ${this.networkName}`, "success");
+                if (switchedTestChains) {
+                    const previousName = NETWORK_DISPLAY_NAMES[previousNetworkId] || previousNetworkId;
+                    this.showAlert(
+                        `Same tb1 address on ${previousName} and ${this.networkName}. Coins are not shared — the balance is ${this.networkName} only.`,
+                        'info',
+                        8000
+                    );
+                } else {
+                    this.showAlert(`RPC Endpoint updated. Detected Network: ${this.networkName}`, "success");
+                }
                  this.networkStatusText = `Selected Network: ${this.networkName} (Detected)`;
                  this.networkStatusClass = `form-text d-block mt-2 ${this.isTestnet ? 'text-info' : 'text-primary'}`; 
 

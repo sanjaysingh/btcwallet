@@ -63,6 +63,7 @@ The build scripts will generate the library files in the `libs/` folder, keeping
 - **For testing only** - don't use this for large amounts of real Bitcoin
 - Always use testnet4 or Signet when experimenting
 - The default Esplora RPC is [mempool.space testnet4](https://mempool.space/testnet4/api/). Signet is available as a preset ([mempool.space signet](https://mempool.space/signet/api/)). Testnet3 is still recognized if you enter a custom Esplora URL for that chain.
+- Testnet4 and Signet reuse the same `tb1` address (and the same passkey-derived key). They are different chains, so a Testnet4 balance is not a Signet balance.
 - Never share your private keys
 - This runs entirely in your browser (no server needed)
 - All library dependencies are kept in the `libs/` folder for better organization
