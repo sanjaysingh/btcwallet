@@ -26,6 +26,13 @@ const NETWORK_EXPLORERS = {
     signet: 'https://mempool.space/signet/',
 };
 
+const BTC_USD_PRICE_TTL_MS = 60_000;
+const BTC_USD_PRICE_SOURCES = [
+    'https://mempool.space/api/v1/prices',
+    'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd',
+];
+let btcUsdPriceInFlight = null;
+
 createApp({
     data() {
         return {
@@ -73,6 +80,9 @@ createApp({
             balanceRequestId: 0,
             balanceRefreshCount: 0,
             balanceUnit: 'BTC',
+            btcUsdPrice: null,
+            btcUsdPriceFetchedAt: 0,
+            btcUsdPriceRequestId: 0,
             isLoading: false,
             isRefreshingBalances: false,
             rpcSwitchId: 0,
@@ -134,7 +144,28 @@ createApp({
             if (!Number.isFinite(amount)) {
                 return address;
             }
-            return `${address} (${Number.parseFloat(amount.toFixed(8))} ${this.balanceUnit})`;
+            const btcText = `${Number.parseFloat(amount.toFixed(8))} ${this.balanceUnit}`;
+            const fiat = this.fiatBalanceLabel;
+            return fiat
+                ? `${address} (${btcText} · ≈ ${fiat})`
+                : `${address} (${btcText})`;
+        },
+        fiatBalanceLabel() {
+            if (typeof BtcUsd === 'undefined') {
+                return '';
+            }
+            return BtcUsd.fiatBalanceForBtc(this.walletBalance, this.btcUsdPrice);
+        },
+        fiatBalanceTitle() {
+            if (!this.fiatBalanceLabel || typeof BtcUsd === 'undefined') {
+                return '';
+            }
+            const rate = BtcUsd.formatUsdAmount(this.btcUsdPrice);
+            const spot = rate ? `1 BTC ≈ ${rate}` : 'Current Bitcoin spot price';
+            if (this.isTestnet) {
+                return `${spot}. Illustrative spot value for test coins.`;
+            }
+            return spot;
         },
         isWalletLoaded() {
             return this.keyPair !== null;
@@ -182,6 +213,53 @@ createApp({
         },
         btcToSatoshis(btc) {
             return Math.round(btc * 100_000_000);
+        },
+        async fetchBtcUsdPrice({ force = false } = {}) {
+            if (typeof BtcUsd === 'undefined' || typeof axios === 'undefined') {
+                return;
+            }
+            const age = Date.now() - this.btcUsdPriceFetchedAt;
+            const fresh = this.btcUsdPrice != null && age < BTC_USD_PRICE_TTL_MS;
+            if (!force && fresh) {
+                return;
+            }
+            if (btcUsdPriceInFlight && !force) {
+                return btcUsdPriceInFlight;
+            }
+
+            const requestId = ++this.btcUsdPriceRequestId;
+            const run = (async () => {
+                const price = await this.requestBtcUsdPrice();
+                if (requestId !== this.btcUsdPriceRequestId) {
+                    return;
+                }
+                if (price != null) {
+                    this.btcUsdPrice = price;
+                    this.btcUsdPriceFetchedAt = Date.now();
+                }
+            })();
+            btcUsdPriceInFlight = run;
+            try {
+                await run;
+            } finally {
+                if (btcUsdPriceInFlight === run) {
+                    btcUsdPriceInFlight = null;
+                }
+            }
+        },
+        async requestBtcUsdPrice() {
+            for (const url of BTC_USD_PRICE_SOURCES) {
+                try {
+                    const response = await axios.get(url, { timeout: 10000 });
+                    const price = BtcUsd.parseBtcUsdPrice(response.data);
+                    if (price != null) {
+                        return price;
+                    }
+                } catch (error) {
+                    console.error(`BTC/USD price fetch failed for ${url}:`, error.message || error);
+                }
+            }
+            return null;
         },
         isValidWif(wif) {
             try {
@@ -603,8 +681,9 @@ createApp({
                 }
             }
         },
-        async fetchBalance({ silent = false } = {}) {
+        async fetchBalance({ silent = false, refreshPrice = false } = {}) {
              if (!this.isWalletLoaded) return;
+            this.fetchBtcUsdPrice({ force: refreshPrice });
             if (!silent) {
                 this.walletBalance = 'Loading...';
             }
@@ -646,7 +725,7 @@ createApp({
             this.balanceRefreshCount += 1;
             this.isRefreshingBalances = true;
             try {
-                await this.fetchBalance({ silent: true });
+                await this.fetchBalance({ silent: true, refreshPrice: true });
             } finally {
                 this.balanceRefreshCount = Math.max(0, this.balanceRefreshCount - 1);
                 this.isRefreshingBalances = this.balanceRefreshCount > 0;
@@ -931,6 +1010,7 @@ createApp({
         }
         // Initialize theme based on data (dark by default)
         document.documentElement.setAttribute('data-bs-theme', this.currentTheme);
+        this.fetchBtcUsdPrice();
 
         // Set initial UI state (replaces updateUI call)
          this.updateWalletStateUI();

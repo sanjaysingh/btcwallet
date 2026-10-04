@@ -91,6 +91,10 @@
                                       <span class="visually-hidden">Refresh balance</span>
                                   </button>
                                   <div class="balance-display">{{ walletBalance }} {{ balanceUnit }}</div>
+                                  <div class="balance-fiat" v-if="fiatBalanceLabel" :title="fiatBalanceTitle">
+                                      ≈ {{ fiatBalanceLabel }}
+                                      <span class="visually-hidden" v-if="isTestnet"> Illustrative spot value for test coins.</span>
+                                  </div>
                                   <div class="text-muted small">{{ networkName }}</div>
                               </div>
                               <div class="account-row">
@@ -284,6 +288,7 @@
     <script src="libs/vue-3.5.43-vue.global.prod.min.js" data-lib="vue"></script>
     <!-- Passkey wallet helper (WebAuthn PRF) -->
     <script src="passkey.js"></script>
+    <script src="usd-balance.js"></script>
     <!-- Add our application script -->
     <script src="app.js"></script>
 </body>
