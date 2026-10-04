@@ -278,6 +278,13 @@ body {
     cursor: wait;
 }
 
+.balance-fiat {
+    margin-top: 0.1rem;
+    font-size: 1.15rem;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
 .account-row {
     display: flex;
     align-items: center;
@@ -366,6 +373,10 @@ body {
     .balance-display {
         font-size: 1.125rem;
     }
+
+    .balance-fiat {
+        font-size: 1rem;
+    }
 }
 
 @media (max-width: 480px) {
@@ -377,6 +388,10 @@ body {
 
     .balance-display {
         font-size: 1rem;
+    }
+
+    .balance-fiat {
+        font-size: 0.95rem;
     }
 
     .account-row .address-display {
